@@ -55,11 +55,12 @@ const S = {
 };
 
 const NAV_ITEMS = [
-  { key: 'resumen',  label: 'Resumen'   },
-  { key: 'stock',    label: 'Stock'     },
-  { key: 'cobros',   label: 'Agenda'    },
-  { key: 'reservas', label: 'Reservas'  },
-  { key: 'clientes', label: 'Clientes'  },
+  { key: 'resumen',  label: 'Resumen'  },
+  { key: 'stock',    label: 'Stock'    },
+  { key: 'ventas',   label: 'Ventas'   },
+  { key: 'cobros',   label: 'Agenda'   },
+  { key: 'reservas', label: 'Reservas' },
+  { key: 'clientes', label: 'Clientes' },
 ];
 
 export default function Header({ screen, onNav }) {

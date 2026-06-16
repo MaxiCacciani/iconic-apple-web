@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CATEGORIAS, CATEGORIAS_PHONE, esPhone, fARS, fUSD, batColor } from '../data/data.js';
+import { CATEGORIAS, CATEGORIAS_PHONE, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
@@ -8,7 +8,7 @@ const TC = 1400;
 
 const EMPTY_FORM = {
   categoria: 'iPhone', modelo: '', cap: '', color: '',
-  cond: 'Nuevo', bat: '', imei: '', usd: '', estado: 'disponible', cantidad: 1,
+  cond: 'Nuevo', bat: '', imei: '', defectos: '', usd: '', estado: 'disponible', cantidad: 1,
 };
 
 function FieldLabel({ children }) {
@@ -51,7 +51,7 @@ function FieldSelect({ value, onChange, options }) {
 
 function StockModal({ initial, onSave, onClose }) {
   const isEdit = !!initial;
-  const [form, setForm] = useState(initial ? { ...initial, bat: initial.bat ?? '', usd: initial.usd ?? '' } : { ...EMPTY_FORM });
+  const [form, setForm] = useState(initial ? { ...initial, bat: initial.bat ?? '', usd: initial.usd ?? '', defectos: initial.defectos ?? '' } : { ...EMPTY_FORM });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const phone = esPhone(form.categoria);
 
@@ -117,6 +117,20 @@ function StockModal({ initial, onSave, onClose }) {
           <FieldLabel>IMEI</FieldLabel>
           <FieldInput value={form.imei} onChange={e => set('imei', e.target.value)} placeholder="356938 11 240517 4"
             style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }} />
+        </div>
+      )}
+
+      {phone && form.cond === 'Usado' && (
+        <div style={fieldWrap}>
+          <FieldLabel>Desperfectos / detalles físicos (opcional)</FieldLabel>
+          <FieldSelect value={form.defectos || ''} onChange={e => set('defectos', e.target.value)}
+            options={[['', 'Sin desperfectos'], ...DEFECTOS_COMUNES.map(d => [d, d])]} />
+          {form.defectos && form.defectos !== '' && (
+            <div style={{ marginTop: 8 }}>
+              <FieldInput value={form.defectos} onChange={e => set('defectos', e.target.value)}
+                placeholder="Describí el desperfecto…" />
+            </div>
+          )}
         </div>
       )}
 
@@ -253,8 +267,8 @@ export default function Stock({ equipos, onAdd, onUpdate }) {
       </div>
 
       {/* Table header */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 0.8fr 1.1fr 0.9fr 0.85fr 36px', gap: 12, padding: '0 14px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
-        {[['Producto','left'],['Categoría','left'],['Condición','left'],['IMEI / Stock','left'],['Precio','right'],['Estado','right'],['','right']].map(([h, align]) => (
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 1.3fr 1.1fr 0.9fr 0.85fr 36px', gap: 12, padding: '0 14px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
+        {[['Producto','left'],['Categoría','left'],['Condición / Estado físico','left'],['IMEI / Stock','left'],['Precio','right'],['Estado','right'],['','right']].map(([h, align]) => (
           <span key={h} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1.5, textTransform: 'uppercase', textAlign: align }}>{h}</span>
         ))}
       </div>
@@ -266,22 +280,43 @@ export default function Stock({ equipos, onAdd, onUpdate }) {
         )}
         {filtered.map(e => {
           const isPhone = esPhone(e.categoria);
+          const batC = e.bat ? batColor(e.bat) : null;
+          const tieneDefectos = e.defectos && e.defectos.trim().length > 0;
           return (
-            <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 0.8fr 1.1fr 0.9fr 0.85fr 36px', gap: 12, alignItems: 'center', padding: '13px 14px', borderBottom: '1px solid rgba(231,238,246,0.05)', borderRadius: 10 }}>
+            <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 1.3fr 1.1fr 0.9fr 0.85fr 36px', gap: 12, alignItems: 'center', padding: '13px 14px', borderBottom: `1px solid ${tieneDefectos ? 'rgba(217,138,118,0.12)' : 'rgba(231,238,246,0.05)'}`, borderRadius: 10, background: tieneDefectos ? 'rgba(217,138,118,0.02)' : 'none' }}>
               {/* Producto */}
               <div>
                 <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{e.modelo}</div>
                 <div style={{ fontSize: 12, color: '#828a94', marginTop: 2 }}>
-                  {[e.cap, e.color, isPhone && e.cond === 'Usado' && e.bat ? `${e.bat}% bat.` : null].filter(Boolean).join(' · ')}
+                  {[e.cap, e.color].filter(Boolean).join(' · ')}
                 </div>
               </div>
               {/* Categoría */}
               <div style={{ fontSize: 12.5, color: '#a6afba' }}>{e.categoria}</div>
-              {/* Condición */}
+              {/* Condición + estado físico */}
               <div>
                 {e.cond === 'Nuevo'
-                  ? <span style={{ fontSize: 12, color: '#b6cdc1', padding: '3px 9px', borderRadius: 6, background: 'rgba(130,179,157,0.12)' }}>Nuevo</span>
-                  : <span style={{ fontSize: 12, color: '#a6afba', padding: '3px 9px', borderRadius: 6, background: 'rgba(231,238,246,0.06)' }}>Usado</span>
+                  ? <span style={{ fontSize: 12, color: '#b6cdc1', padding: '3px 9px', borderRadius: 6, background: 'rgba(130,179,157,0.12)' }}>Nuevo · sellado</span>
+                  : (
+                    <div>
+                      <span style={{ fontSize: 12, color: '#a6afba', padding: '3px 9px', borderRadius: 6, background: 'rgba(231,238,246,0.06)' }}>Usado</span>
+                      {isPhone && e.bat && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7 }}>
+                          <div style={{ width: 28, height: 12, borderRadius: 3, border: `1.5px solid ${batC}`, position: 'relative', flexShrink: 0 }}>
+                            <div style={{ position: 'absolute', inset: '1.5px 1.5px 1.5px', borderRadius: 1.5, background: batC, width: `${e.bat}%`, maxWidth: '100%' }} />
+                            <div style={{ position: 'absolute', right: -3.5, top: '50%', transform: 'translateY(-50%)', width: 2.5, height: 5.5, borderRadius: '0 1px 1px 0', background: batC }} />
+                          </div>
+                          <span style={{ fontSize: 12, color: batC, fontWeight: 500 }}>{e.bat}%</span>
+                        </div>
+                      )}
+                      {tieneDefectos && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginTop: 5 }}>
+                          <span style={{ fontSize: 11, color: '#d98a76', marginTop: 1, flexShrink: 0 }}>⚠</span>
+                          <span style={{ fontSize: 11, color: '#c09080', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{e.defectos}</span>
+                        </div>
+                      )}
+                    </div>
+                  )
                 }
               </div>
               {/* IMEI / Stock */}

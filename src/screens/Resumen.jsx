@@ -1,4 +1,5 @@
-import { COBROS, RESERVAS, ACTIVIDAD, SPARK_RAW, TODAY, MONTH_ABBR, DAY_NAMES, fARS, fUSD, dnum } from '../data/data.js';
+import { COBROS, ACTIVIDAD, SPARK_RAW, TODAY, MONTH_ABBR, DAY_NAMES, fARS, fUSD, dnum } from '../data/data.js';
+import { RESERVAS_INIT as RESERVAS } from '../data/data.js';
 
 const C = {
   label: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 2, color: '#828a94', textTransform: 'uppercase' },

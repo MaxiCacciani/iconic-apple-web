@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RESERVAS, TODAY, DIAGNOSTICOS, fARS, fUSD, dnum, mesesRest, gvFmt, saldoDe } from '../data/data.js';
+import { TODAY, DIAGNOSTICOS, fARS, fUSD, dnum, mesesRest, gvFmt, saldoDe } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
@@ -104,8 +104,64 @@ function ReclamoModal({ compras, onSave, onClose }) {
   );
 }
 
-function ClienteDetail({ cli, onBack, onAddReclamo }) {
+function UpdateReclamoModal({ reclamo, onSave, onClose }) {
+  const [estado, setEstado] = useState(reclamo.estado);
+  const [resolucion, setResolucion] = useState(reclamo.resolucion || '');
+
+  const fw = { marginBottom: 16 };
+  const textarea = { width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14, resize: 'vertical', minHeight: 90, fontFamily: "'Hanken Grotesk', sans-serif" };
+  const ESTILOS = ESTADO_RECLAMO_COLORS[estado] || ESTADO_RECLAMO_COLORS['Pendiente'];
+
+  return (
+    <Modal title="Actualizar reclamo" onClose={onClose} width={460}>
+      <div style={{ padding: '10px 14px', borderRadius: 11, border: '1px solid rgba(231,238,246,0.07)', background: 'rgba(231,238,246,0.02)', marginBottom: 20 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{reclamo.diagnostico}</div>
+        <div style={{ fontSize: 12, color: '#828a94', marginTop: 2 }}>{reclamo.equipoLabel} {reclamo.imei ? `· ${reclamo.imei}` : ''} · {reclamo.fecha}</div>
+        {reclamo.descripcion && <div style={{ fontSize: 12.5, color: '#9aa2ad', marginTop: 6, lineHeight: 1.5 }}>{reclamo.descripcion}</div>}
+      </div>
+
+      <div style={fw}>
+        <FieldLabel>Estado del reclamo</FieldLabel>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {['Pendiente','En gestión','Resuelto'].map(s => {
+            const sel = estado === s;
+            const c = ESTADO_RECLAMO_COLORS[s];
+            return (
+              <button key={s} onClick={() => setEstado(s)} style={{ flex: 1, padding: '10px 8px', borderRadius: 10, border: `1px solid ${sel ? c.color : 'rgba(231,238,246,0.09)'}`, background: sel ? c.bg : 'rgba(231,238,246,0.02)', color: sel ? c.color : '#828a94', fontSize: 12.5, fontWeight: sel ? 600 : 400, cursor: 'pointer' }}>
+                {s}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={fw}>
+        <FieldLabel>Resolución / notas de gestión</FieldLabel>
+        <textarea value={resolucion} onChange={e => setResolucion(e.target.value)}
+          placeholder={estado === 'Resuelto' ? 'Describí cómo se resolvió el reclamo…' : 'Anotá el avance o la gestión realizada…'}
+          style={textarea} />
+      </div>
+
+      {estado === 'Resuelto' && resolucion.trim() && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 10, background: 'rgba(130,179,157,0.08)', border: '1px solid rgba(130,179,157,0.2)' }}>
+          <span style={{ fontSize: 11, color: '#82b39d', fontWeight: 600 }}>Vista previa resolución</span>
+          <div style={{ fontSize: 13, color: '#b6cdc1', marginTop: 4, lineHeight: 1.5 }}>{resolucion}</div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={() => onSave({ estado, resolucion })} style={{ flex: 2, padding: 12, borderRadius: 11, border: `1px solid ${ESTILOS.color}`, background: ESTILOS.bg, color: ESTILOS.color, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          Guardar cambios
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function ClienteDetail({ cli, reservas, onBack, onAddReclamo, onUpdateReclamo }) {
   const [reclamoModal, setReclamoModal] = useState(false);
+  const [updateModal, setUpdateModal] = useState(null);
 
   const enMora = !!(cli.plan && cli.plan.mora);
   const cliCompras = cli.compras.map(co => {
@@ -127,7 +183,7 @@ function ClienteDetail({ cli, onBack, onAddReclamo }) {
       dots: Array.from({ length: plan.total }, (_, i) => ({ pagada: i < plan.pagadas })),
     };
   }
-  const reservasCli = RESERVAS.filter(r => r.cliente === cli.nombre && r.estado === 'activa');
+  const reservasCli = reservas.filter(r => r.cliente === cli.nombre && r.estado === 'activa');
   const reclamos = cli.reclamos || [];
 
   const handleSaveReclamo = (data) => {
@@ -135,10 +191,18 @@ function ClienteDetail({ cli, onBack, onAddReclamo }) {
     setReclamoModal(false);
   };
 
+  const handleUpdateReclamo = (updates) => {
+    onUpdateReclamo(cli.id, updateModal.id, updates);
+    setUpdateModal(null);
+  };
+
   return (
     <div>
       {reclamoModal && (
         <ReclamoModal compras={cli.compras} onSave={handleSaveReclamo} onClose={() => setReclamoModal(false)} />
+      )}
+      {updateModal && (
+        <UpdateReclamoModal reclamo={updateModal} onSave={handleUpdateReclamo} onClose={() => setUpdateModal(null)} />
       )}
 
       <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#828a94', fontSize: 13.5, marginBottom: 18, padding: 0 }}>‹ Volver al directorio</button>
@@ -225,19 +289,30 @@ function ClienteDetail({ cli, onBack, onAddReclamo }) {
             )}
             {reclamos.map((r, i) => {
               const estilos = ESTADO_RECLAMO_COLORS[r.estado] || ESTADO_RECLAMO_COLORS['Pendiente'];
+              const resuelto = r.estado === 'Resuelto';
               return (
                 <div key={r.id || i} style={{ padding: '16px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(231,238,246,0.06)' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: r.descripcion || r.resolucion ? 10 : 0 }}>
-                    <div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{r.diagnostico}</div>
                       <div style={{ fontSize: 12, color: '#828a94', marginTop: 3 }}>{r.equipoLabel} {r.imei ? `· ${r.imei}` : ''}</div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 7, flexShrink: 0 }}>
                       <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, ...estilos }}>{r.estado}</span>
                       <span style={{ ...MONO(10.5), color: '#6a717b' }}>{r.fecha}</span>
+                      {!resuelto && (
+                        <button onClick={() => setUpdateModal(r)} style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(231,238,246,0.12)', background: 'rgba(231,238,246,0.04)', color: '#a6afba', cursor: 'pointer' }}>
+                          Actualizar
+                        </button>
+                      )}
+                      {resuelto && (
+                        <button onClick={() => setUpdateModal(r)} style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(130,179,157,0.2)', background: 'rgba(130,179,157,0.06)', color: '#82b39d', cursor: 'pointer' }}>
+                          Editar
+                        </button>
+                      )}
                     </div>
                   </div>
-                  {r.descripcion && <div style={{ fontSize: 13, color: '#9aa2ad', lineHeight: 1.5 }}>{r.descripcion}</div>}
+                  {r.descripcion && <div style={{ fontSize: 13, color: '#9aa2ad', lineHeight: 1.5, marginTop: 8 }}>{r.descripcion}</div>}
                   {r.resolucion && (
                     <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 9, background: 'rgba(130,179,157,0.08)', border: '1px solid rgba(130,179,157,0.18)' }}>
                       <span style={{ fontSize: 11, color: '#82b39d', fontWeight: 500 }}>Resolución: </span>
@@ -311,7 +386,7 @@ function ClienteDetail({ cli, onBack, onAddReclamo }) {
   );
 }
 
-export default function Clientes({ clientes, onAddReclamo }) {
+export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateReclamo }) {
   const [view, setView] = useState('list');
   const [clienteId, setClienteId] = useState('c1');
   const [search, setSearch] = useState('');
@@ -324,7 +399,7 @@ export default function Clientes({ clientes, onAddReclamo }) {
 
   if (view === 'detail') {
     const cli = clientes.find(c => c.id === clienteId) || clientes[0];
-    return <ClienteDetail cli={cli} onBack={goBack} onAddReclamo={onAddReclamo} />;
+    return <ClienteDetail cli={cli} reservas={reservas} onBack={goBack} onAddReclamo={onAddReclamo} onUpdateReclamo={onUpdateReclamo} />;
   }
 
   return (

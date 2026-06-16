@@ -12,6 +12,19 @@ export const CATEGORIAS = [
 ];
 export const esPhone = (cat) => CATEGORIAS_PHONE.includes(cat);
 
+export const DEFECTOS_COMUNES = [
+  'Pantalla con micro-rayones',
+  'Pantalla rota (uso normal afectado)',
+  'Marco desgastado o rayado',
+  'Carcasa trasera rayada',
+  'Botón con juego o dificultad',
+  'Altavoz con distorsión leve',
+  'Cámara con polvo interior',
+  'Touch ID / Face ID con fallas leves',
+  'Puerto de carga flojo',
+  'Otro desperfecto',
+];
+
 export const DIAGNOSTICOS = [
   'Pantalla rota o con fallas',
   'Batería defectuosa',
@@ -49,12 +62,12 @@ export const EQUIPOS_INIT = [
   { id:'e2',  categoria:'iPhone', modelo:'iPhone 16 Pro',     cap:'256 GB', color:'Titanio Negro',     cond:'Nuevo', bat:null, imei:'356938 11 772094 1', usd:1250, estado:'disponible', cantidad:1 },
   { id:'e3',  categoria:'iPhone', modelo:'iPhone 16',         cap:'128 GB', color:'Rosa',              cond:'Nuevo', bat:null, imei:'353091 10 884412 8', usd: 950, estado:'disponible', cantidad:1 },
   { id:'e4',  categoria:'iPhone', modelo:'iPhone 16 Plus',    cap:'256 GB', color:'Ultramarino',       cond:'Nuevo', bat:null, imei:'356712 09 551203 6', usd:1080, estado:'disponible', cantidad:1 },
-  { id:'e5',  categoria:'iPhone', modelo:'iPhone 15 Pro Max', cap:'256 GB', color:'Titanio Natural',   cond:'Usado', bat:92,   imei:'358261 07 119284 3', usd:1180, estado:'disponible', cantidad:1 },
-  { id:'e6',  categoria:'iPhone', modelo:'iPhone 15 Pro',     cap:'128 GB', color:'Titanio Azul',      cond:'Usado', bat:88,   imei:'357004 06 882017 9', usd: 870, estado:'disponible', cantidad:1 },
-  { id:'e7',  categoria:'iPhone', modelo:'iPhone 15',         cap:'128 GB', color:'Negro',             cond:'Nuevo', bat:null, imei:'352099 08 440126 2', usd: 820, estado:'disponible', cantidad:1 },
-  { id:'e8',  categoria:'iPhone', modelo:'iPhone 14 Pro',     cap:'256 GB', color:'Morado Oscuro',     cond:'Usado', bat:81,   imei:'351442 05 207733 5', usd: 760, estado:'disponible', cantidad:1 },
-  { id:'e9',  categoria:'iPhone', modelo:'iPhone 14',         cap:'128 GB', color:'Medianoche',        cond:'Usado', bat:79,   imei:'350877 04 663901 7', usd: 600, estado:'disponible', cantidad:1 },
-  { id:'e10', categoria:'iPhone', modelo:'iPhone 13',         cap:'128 GB', color:'Blanco Estelar',    cond:'Usado', bat:73,   imei:'353448 03 119027 4', usd: 470, estado:'disponible', cantidad:1 },
+  { id:'e5',  categoria:'iPhone', modelo:'iPhone 15 Pro Max', cap:'256 GB', color:'Titanio Natural',   cond:'Usado', bat:92,   imei:'358261 07 119284 3', usd:1180, estado:'disponible', cantidad:1, defectos:'' },
+  { id:'e6',  categoria:'iPhone', modelo:'iPhone 15 Pro',     cap:'128 GB', color:'Titanio Azul',      cond:'Usado', bat:88,   imei:'357004 06 882017 9', usd: 870, estado:'disponible', cantidad:1, defectos:'' },
+  { id:'e7',  categoria:'iPhone', modelo:'iPhone 15',         cap:'128 GB', color:'Negro',             cond:'Nuevo', bat:null, imei:'352099 08 440126 2', usd: 820, estado:'disponible', cantidad:1, defectos:'' },
+  { id:'e8',  categoria:'iPhone', modelo:'iPhone 14 Pro',     cap:'256 GB', color:'Morado Oscuro',     cond:'Usado', bat:81,   imei:'351442 05 207733 5', usd: 760, estado:'disponible', cantidad:1, defectos:'Marco desgastado o rayado' },
+  { id:'e9',  categoria:'iPhone', modelo:'iPhone 14',         cap:'128 GB', color:'Medianoche',        cond:'Usado', bat:79,   imei:'350877 04 663901 7', usd: 600, estado:'disponible', cantidad:1, defectos:'Pantalla con micro-rayones' },
+  { id:'e10', categoria:'iPhone', modelo:'iPhone 13',         cap:'128 GB', color:'Blanco Estelar',    cond:'Usado', bat:73,   imei:'353448 03 119027 4', usd: 470, estado:'disponible', cantidad:1, defectos:'Carcasa trasera rayada · Marco desgastado o rayado' },
   { id:'e11', categoria:'iPhone', modelo:'iPhone 16 Pro',     cap:'512 GB', color:'Titanio Desierto',  cond:'Nuevo', bat:null, imei:'356938 11 905562 0', usd:1390, estado:'reservado',  cantidad:1 },
   { id:'e12', categoria:'iPhone', modelo:'iPhone 15 Pro',     cap:'256 GB', color:'Titanio Blanco',    cond:'Usado', bat:90,   imei:'357004 06 338820 1', usd: 920, estado:'vendido',    cantidad:1 },
   // Accesorios
@@ -91,7 +104,7 @@ export const COBROS = [
   { y:2026, m:7,  d:10, cliente:'Sofía Ledesma',    equipo:'iPhone 16 · cuota 4/9',          monto:240000, estado:'pendiente'},
 ];
 
-export const RESERVAS = [
+export const RESERVAS_INIT = [
   { id:'r1', equipo:'iPhone 16 Pro',     spec:'512 GB · Titanio Desierto', cliente:'Tomás Vera',     sena:350000, usd:1390, estado:'activa',      fecha:'8 jun'  },
   { id:'r2', equipo:'iPhone 16 Pro Max', spec:'256 GB · Titanio Natural',  cliente:'Camila Aguirre', sena:500000, usd:1450, estado:'activa',      fecha:'2 jun'  },
   { id:'r3', equipo:'iPhone 15',         spec:'128 GB · Negro',            cliente:'Bruno Medina',   sena:180000, usd: 820, estado:'activa',      fecha:'10 jun' },
@@ -169,4 +182,22 @@ export const CLIENTES_INIT = [
     compras:[
       { modelo:'iPhone 15 Pro', cap:'128 GB', color:'Titanio Azul', cond:'Usado', bat:85, imei:'357004 06 311956 0', fecha:'30 ago 2025', usd:870, gVence:{y:2026,m:8,d:30} },
     ], plan:null, reclamos:[] },
+];
+
+export const VENTAS_INIT = [
+  { id:'vta1',  fechaLabel:'15 jun 2026', fechaNum:20260615, equipo:'iPhone 16 Plus · 256 GB · Ultramarino',        imei:'356712 09 551203 6', categoria:'iPhone', cliente:'Camila Aguirre',   usd:1080, modalidad:'contado', cuotas:null, anticipo:null, metodo:'Débito',         cuotaMonto:null },
+  { id:'vta2',  fechaLabel:'15 jun 2026', fechaNum:20260615, equipo:'iPhone 15 · 128 GB · Negro',                   imei:'352099 08 440126 2', categoria:'iPhone', cliente:'Lucía Bringas',    usd: 820, modalidad:'cuotas',  cuotas:6,    anticipo:0,    metodo:'Transferencia',  cuotaMonto:192000 },
+  { id:'vta3',  fechaLabel:'12 abr 2026', fechaNum:20260412, equipo:'iPhone 16 Pro · 256 GB · Titanio Negro',        imei:'356938 11 772094 1', categoria:'iPhone', cliente:'Martín Quiroga',   usd:1250, modalidad:'cuotas',  cuotas:6,    anticipo:0,    metodo:'Transferencia',  cuotaMonto:312000 },
+  { id:'vta4',  fechaLabel:'20 may 2026', fechaNum:20260520, equipo:'iPhone 16 Pro Max · 256 GB · Titanio Natural',  imei:'356938 11 240517 4', categoria:'iPhone', cliente:'Nahuel Ferreyra',  usd:1450, modalidad:'cuotas',  cuotas:12,   anticipo:300000, metodo:'Transferencia', cuotaMonto:360000 },
+  { id:'vta5',  fechaLabel:'09 mar 2026', fechaNum:20260309, equipo:'iPhone 16 · 128 GB · Rosa',                     imei:'353091 10 884412 8', categoria:'iPhone', cliente:'Sofía Ledesma',    usd: 950, modalidad:'cuotas',  cuotas:9,    anticipo:0,    metodo:'Transferencia',  cuotaMonto:240000 },
+  { id:'vta6',  fechaLabel:'18 feb 2026', fechaNum:20260218, equipo:'iPhone 16 · 256 GB · Verde Azulado',            imei:'353091 10 412039 8', categoria:'iPhone', cliente:'Valentina Cáceres', usd:1010, modalidad:'contado', cuotas:null, anticipo:null, metodo:'Crédito',        cuotaMonto:null },
+  { id:'vta7',  fechaLabel:'04 ene 2026', fechaNum:20260104, equipo:'iPhone 14 · 128 GB · Medianoche',               imei:'350877 04 118802 3', categoria:'iPhone', cliente:'Bruno Medina',     usd: 600, modalidad:'contado', cuotas:null, anticipo:null, metodo:'Transferencia',  cuotaMonto:null },
+  { id:'vta8',  fechaLabel:'20 dic 2025', fechaNum:20251220, equipo:'iPhone 15 Pro Max · 256 GB · Titanio Natural',  imei:'358261 07 119284 3', categoria:'iPhone', cliente:'Lucía Bringas',    usd:1180, modalidad:'cuotas',  cuotas:6,    anticipo:0,    metodo:'Transferencia',  cuotaMonto:268000 },
+  { id:'vta9',  fechaLabel:'10 dic 2025', fechaNum:20251210, equipo:'iPhone 13 · 128 GB · Blanco Estelar',           imei:'353448 03 119027 4', categoria:'iPhone', cliente:'Tomás Vera',       usd: 470, modalidad:'cuotas',  cuotas:6,    anticipo:0,    metodo:'Débito',         cuotaMonto:132000 },
+  { id:'vta10', fechaLabel:'22 nov 2025', fechaNum:20251122, equipo:'iPhone 14 Pro · 256 GB · Morado Oscuro',        imei:'351442 05 207733 5', categoria:'iPhone', cliente:'Federico Sosa',    usd: 760, modalidad:'cuotas',  cuotas:6,    anticipo:0,    metodo:'Transferencia',  cuotaMonto:175000 },
+  { id:'vta11', fechaLabel:'02 nov 2025', fechaNum:20251102, equipo:'iPhone 15 · 128 GB · Azul',                     imei:'352099 08 990281 4', categoria:'iPhone', cliente:'Julieta Funes',    usd: 820, modalidad:'cuotas',  cuotas:9,    anticipo:0,    metodo:'Transferencia',  cuotaMonto:222000 },
+  { id:'vta12', fechaLabel:'12 set 2025', fechaNum:20250912, equipo:'iPhone 14 Pro · 256 GB · Plata',                imei:'351442 05 660173 9', categoria:'iPhone', cliente:'Pablo Lucero',     usd: 760, modalidad:'cuotas',  cuotas:9,    anticipo:0,    metodo:'Débito',         cuotaMonto:198000 },
+  { id:'vta13', fechaLabel:'30 ago 2025', fechaNum:20250830, equipo:'iPhone 15 Pro · 128 GB · Titanio Azul',         imei:'357004 06 311956 0', categoria:'iPhone', cliente:'Gonzalo Herrera',  usd: 870, modalidad:'contado', cuotas:null, anticipo:null, metodo:'Transferencia',  cuotaMonto:null },
+  { id:'vta14', fechaLabel:'03 set 2024', fechaNum:20240903, equipo:'iPhone 14 · 128 GB · Medianoche',               imei:'350877 04 663901 7', categoria:'iPhone', cliente:'Martín Quiroga',   usd: 600, modalidad:'contado', cuotas:null, anticipo:null, metodo:'Transferencia',  cuotaMonto:null },
+  { id:'vta15', fechaLabel:'15 ago 2024', fechaNum:20240815, equipo:'iPhone 12 · 64 GB · Negro',                     imei:'353091 10 220456 1', categoria:'iPhone', cliente:'Ramiro Ponce',     usd: 380, modalidad:'contado', cuotas:null, anticipo:null, metodo:'Efectivo',       cuotaMonto:null },
 ];
