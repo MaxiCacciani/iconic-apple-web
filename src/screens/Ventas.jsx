@@ -1,6 +1,59 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { fARS, fUSD, TC as TC_ACTUAL } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
+
+function EditCostoModal({ venta, onSave, onClose }) {
+  const [costo, setCosto] = useState(venta.costo ? String(venta.costo) : '');
+  const costoNum = parseFloat(costo) || 0;
+  const ganancia = costoNum > 0 ? venta.usd - costoNum : null;
+  const margen   = costoNum > 0 ? Math.round((ganancia / costoNum) * 100) : null;
+  const field = { width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 15, fontWeight: 500, boxSizing: 'border-box', fontFamily: "'Hanken Grotesk', sans-serif" };
+  return (
+    <Modal title={`Costo · ${venta.equipo}`} onClose={onClose} width={400}>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, color: '#6a717b' }}>Costo en USD</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', marginBottom: 16 }}>
+        <span style={{ color: '#828a94', fontSize: 15 }}>US$</span>
+        <input type="number" min="0" step="0.01" value={costo} onChange={e => setCosto(e.target.value)} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} autoFocus />
+      </div>
+      {ganancia !== null && (
+        <div style={{ padding: '12px 14px', borderRadius: 10, background: ganancia >= 0 ? 'rgba(130,179,157,0.08)' : 'rgba(217,138,118,0.08)', border: `1px solid ${ganancia >= 0 ? 'rgba(130,179,157,0.2)' : 'rgba(217,138,118,0.2)'}`, marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#a6afba', marginBottom: 4 }}>
+            <span>Precio venta</span><span>{fUSD(venta.usd)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#a6afba', marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
+            <span>Costo</span><span>−{fUSD(costoNum)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 600, color: ganancia >= 0 ? '#82b39d' : '#d98a76' }}>
+            <span>Ganancia</span>
+            <span>{ganancia >= 0 ? '+' : ''}{fUSD(ganancia)}{margen !== null ? ` · ${margen}%` : ''}</span>
+          </div>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>Cancelar</button>
+        <button onClick={() => costoNum > 0 && onSave(venta.id, costoNum)} style={{ flex: 2, padding: 12, borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: costoNum > 0 ? 'linear-gradient(160deg, #eef2f6, #b7c3ce)' : 'rgba(231,238,246,0.05)', color: costoNum > 0 ? '#14171c' : '#6a717b', fontSize: 14, fontWeight: 600, cursor: costoNum > 0 ? 'pointer' : 'default', fontFamily: "'Hanken Grotesk', sans-serif" }}>Guardar</button>
+      </div>
+    </Modal>
+  );
+}
+
+function DeleteVentaModal({ venta, onConfirm, onClose }) {
+  return (
+    <Modal title="Eliminar venta" onClose={onClose} width={420}>
+      <p style={{ fontSize: 14.5, color: '#a6afba', marginBottom: 10 }}>
+        ¿Eliminás la venta de <span style={{ color: '#eef2f7', fontWeight: 600 }}>{venta.equipo}</span> a {venta.cliente}?
+      </p>
+      <p style={{ fontSize: 13, color: '#d98a76', marginBottom: 24, lineHeight: 1.5 }}>
+        Esta acción no se puede deshacer. Si el equipo está en tu stock, tenés que restaurarlo manualmente desde la pestaña Stock.
+      </p>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>Cancelar</button>
+        <button onClick={() => onConfirm(venta.id)} style={{ flex: 1, padding: 12, borderRadius: 11, border: 'none', background: '#c0655a', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>Eliminar venta</button>
+      </div>
+    </Modal>
+  );
+}
+import { uploadGarantia, deleteGarantia } from '../lib/db.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -22,42 +75,69 @@ function StatCard({ label, value, sub }) {
   );
 }
 
-function GarantiaModal({ venta, onClose }) {
-  const isImg = venta.garantiaUrl && venta.garantiaUrl.startsWith('data:image');
-  const isPdf = venta.garantiaUrl && venta.garantiaUrl.startsWith('data:application/pdf');
+function GarantiaModal({ venta, onClose, onDelete }) {
+  const urls  = (venta.garantiaUrl    || '').split('|').filter(Boolean);
+  const names = (venta.garantiaNombre || '').split('|').filter(Boolean);
+  const isPdf = urls.length > 0 && urls[0].toLowerCase().includes('.pdf');
+  const btnBase = { padding: '10px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif", textDecoration: 'none' };
   return (
     <Modal title={`Garantía · ${venta.equipo}`} onClose={onClose} width={720}>
       <div style={{ fontSize: 12.5, color: '#828a94', marginBottom: 16, fontFamily: "'JetBrains Mono', monospace" }}>
-        {venta.garantiaNombre}
+        {names.join(' · ')}
       </div>
-      {isImg && (
-        <img
-          src={venta.garantiaUrl}
-          alt="Garantía"
-          style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(231,238,246,0.1)', maxHeight: 600, objectFit: 'contain', background: '#111' }}
-        />
-      )}
       {isPdf && (
-        <iframe
-          src={venta.garantiaUrl}
-          title="Garantía PDF"
-          style={{ width: '100%', height: 560, borderRadius: 12, border: '1px solid rgba(231,238,246,0.1)' }}
-        />
+        <iframe src={urls[0]} title="Garantía PDF" style={{ width: '100%', height: 560, borderRadius: 12, border: '1px solid rgba(231,238,246,0.1)' }} />
       )}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <a
-          href={venta.garantiaUrl}
-          download={venta.garantiaNombre || 'garantia'}
-          style={{ padding: '10px 18px', borderRadius: 10, background: 'rgba(116,168,214,0.12)', border: '1px solid rgba(116,168,214,0.3)', color: '#74a8d6', fontSize: 13, textDecoration: 'none', cursor: 'pointer' }}
-        >
-          Descargar
-        </a>
+      {!isPdf && urls.map((url, i) => (
+        <img key={i} src={url} alt={`Garantía ${i + 1}`}
+          style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(231,238,246,0.1)', maxHeight: 420, objectFit: 'contain', background: '#111', marginBottom: i < urls.length - 1 ? 12 : 0 }}
+        />
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
+        <button onClick={() => onDelete(venta.id, venta.garantiaUrl)}
+          style={{ ...btnBase, background: 'rgba(217,138,118,0.1)', border: '1px solid rgba(217,138,118,0.3)', color: '#d98a76' }}>
+          Eliminar garantía
+        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {urls.map((url, i) => (
+            <a key={i} href={url} download={names[i] || `garantia${urls.length > 1 ? `_${i + 1}` : ''}`}
+              style={{ ...btnBase, background: 'rgba(116,168,214,0.12)', border: '1px solid rgba(116,168,214,0.3)', color: '#74a8d6', display: 'inline-block' }}>
+              {urls.length > 1 ? `Descargar (${i + 1})` : 'Descargar'}
+            </a>
+          ))}
+        </div>
       </div>
     </Modal>
   );
 }
 
-export default function Ventas({ ventas, onUpdateVenta }) {
+async function getPdfPageCount(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const text = new TextDecoder('latin1').decode(new Uint8Array(buf));
+    const m = text.match(/\/Type\s*\/Page[^s]/g);
+    return m ? m.length : null;
+  } catch {
+    return null;
+  }
+}
+
+async function validateGarantiaFiles(files) {
+  const isJpg = f => /\.(jpe?g)$/i.test(f.name) || f.type === 'image/jpeg';
+  const isPdf = f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+  const allJpg = files.every(isJpg);
+  const allPdf = files.every(isPdf);
+  if (!allJpg && !allPdf) return 'Solo se aceptan archivos PDF o imágenes JPG/JPEG.';
+  if (allPdf) {
+    if (files.length > 1) return 'Solo se puede adjuntar un PDF por garantía.';
+    const pages = await getPdfPageCount(files[0]);
+    if (pages !== null && pages > 2) return `El PDF tiene ${pages} páginas — el máximo permitido es 2.`;
+  }
+  if (allJpg && files.length > 2) return 'Se aceptan como máximo 2 imágenes JPG.';
+  return null;
+}
+
+export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }) {
   const [q, setQ] = useState('');
   const [filtroMod, setFiltroMod] = useState('todas');
   const [filtroMet, setFiltroMet] = useState('todos');
@@ -65,7 +145,10 @@ export default function Ventas({ ventas, onUpdateVenta }) {
   const [verTodas, setVerTodas] = useState(false);
   const [uploadingFor, setUploadingFor] = useState(null);
   const [viewingGarantia, setViewingGarantia] = useState(null);
+  const [deletingVenta, setDeletingVenta] = useState(null);
+  const [editingCosto, setEditingCosto] = useState(null);
   const fileInputRef = useRef(null);
+  const uploadingForRef = useRef(null);
 
   const sorted = [...ventas].sort((a, b) => b.fechaNum - a.fechaNum);
 
@@ -121,37 +204,58 @@ export default function Ventas({ ventas, onUpdateVenta }) {
     if (v.garantiaUrl) {
       setViewingGarantia(v.id);
     } else {
+      uploadingForRef.current = v.id;
       setUploadingFor(v.id);
       fileInputRef.current.click();
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file || !uploadingFor) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      onUpdateVenta(uploadingFor, { garantiaUrl: ev.target.result, garantiaNombre: file.name });
-      setUploadingFor(null);
-    };
-    reader.readAsDataURL(file);
+  const handleFileChange = useCallback(async (e) => {
+    const files = Array.from(e.target.files);
     e.target.value = '';
+    const ventaId = uploadingForRef.current;
+    if (files.length === 0 || !ventaId) { setUploadingFor(null); return; }
+    const err = await validateGarantiaFiles(files);
+    if (err) { onError(err); setUploadingFor(null); return; }
+    try {
+      const { url, nombre } = await uploadGarantia(ventaId, files);
+      await onUpdateVenta(ventaId, { garantiaUrl: url, garantiaNombre: nombre });
+    } catch (e) {
+      onError('Error al subir la garantía: ' + e.message);
+    } finally {
+      uploadingForRef.current = null;
+      setUploadingFor(null);
+    }
+  }, [onError, onUpdateVenta]);
+
+  const handleDeleteGarantia = async (id, garantiaUrl) => {
+    try {
+      await deleteGarantia(garantiaUrl);
+      await onUpdateVenta(id, { garantiaUrl: null, garantiaNombre: null });
+      setViewingGarantia(null);
+    } catch (err) {
+      onError('Error al eliminar la garantía: ' + err.message);
+    }
   };
 
-  const ventaViewing = viewingGarantia ? ventas.find(v => v.id === viewingGarantia) : null;
+  const ventaViewing  = viewingGarantia ? ventas.find(v => v.id === viewingGarantia) : null;
+  const ventaDeleting = deletingVenta   ? ventas.find(v => v.id === deletingVenta)   : null;
+  const ventaEditing  = editingCosto    ? ventas.find(v => v.id === editingCosto)    : null;
 
-  const cols = '0.65fr 2fr 1.1fr 1.4fr 0.9fr 1fr 38px';
+  const cols = '0.65fr 2fr 1.1fr 1.4fr 0.9fr 1fr 38px 32px';
 
   return (
     <div>
-      {/* Garantía viewer */}
-      {ventaViewing && <GarantiaModal venta={ventaViewing} onClose={() => setViewingGarantia(null)} />}
+      {ventaViewing  && <GarantiaModal   venta={ventaViewing}  onClose={() => setViewingGarantia(null)} onDelete={handleDeleteGarantia} />}
+      {ventaDeleting && <DeleteVentaModal venta={ventaDeleting} onClose={() => setDeletingVenta(null)}  onConfirm={(id) => { onDeleteVenta(id); setDeletingVenta(null); }} />}
+      {ventaEditing  && <EditCostoModal   venta={ventaEditing}  onClose={() => setEditingCosto(null)}   onSave={(id, c) => { onUpdateVenta(id, { costo: c }); setEditingCosto(null); }} />}
 
       {/* Hidden file input for warranty upload */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,application/pdf"
+        accept=".jpg,.jpeg,application/pdf"
+        multiple
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
@@ -233,7 +337,7 @@ export default function Ventas({ ventas, onUpdateVenta }) {
 
       {/* Table header */}
       <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '0 16px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
-        {[['Fecha','left'],['Equipo','left'],['Cliente','left'],['Modalidad','left'],['Método','left'],['Precio / Ganancia','right'],['','right']].map(([h, align]) => (
+        {[['Fecha','left'],['Equipo','left'],['Cliente','left'],['Modalidad','left'],['Método','left'],['Precio / Ganancia','right'],['','right'],['','right']].map(([h, align]) => (
           <span key={h} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1.5, textTransform: 'uppercase', textAlign: align }}>{h}</span>
         ))}
       </div>
@@ -314,10 +418,17 @@ export default function Ventas({ ventas, onUpdateVenta }) {
               <div style={{ fontSize: 11, color: '#6a717b', marginTop: 1, whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace" }}>
                 {fARS(v.usd * tcVenta)} · TC {tcVenta.toLocaleString('es-AR')}
               </div>
-              {ganancia !== null && (
-                <div style={{ fontSize: 11, color: ganancia >= 0 ? '#82b39d' : '#d98a76', marginTop: 2, whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace" }}>
-                  {ganancia >= 0 ? '+' : ''}{fUSD(ganancia)}{margen !== null ? ` · ${margen}%` : ''}
+              {ganancia !== null ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                  <span style={{ fontSize: 11, color: ganancia >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {ganancia >= 0 ? '+' : ''}{fUSD(ganancia)}{margen !== null ? ` · ${margen}%` : ''}
+                  </span>
+                  <button onClick={() => setEditingCosto(v.id)} title="Editar costo" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5058', fontSize: 11, padding: 0, lineHeight: 1 }}>✎</button>
                 </div>
+              ) : (
+                <button onClick={() => setEditingCosto(v.id)} style={{ fontSize: 11, color: '#4a5058', background: 'none', border: 'none', cursor: 'pointer', marginTop: 3, display: 'block', marginLeft: 'auto' }}>
+                  + cargar costo
+                </button>
               )}
             </div>
 
@@ -329,6 +440,17 @@ export default function Ventas({ ventas, onUpdateVenta }) {
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: tieneGarantia ? '#82b39d' : '#6a717b', fontSize: 15 }}
               >
                 {tieneGarantia ? '📎' : '○'}
+              </button>
+            </div>
+
+            {/* Eliminar */}
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button
+                onClick={() => setDeletingVenta(v.id)}
+                title="Eliminar venta"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5058', fontSize: 14 }}
+              >
+                ✕
               </button>
             </div>
           </div>

@@ -388,7 +388,7 @@ function ClienteDetail({ cli, reservas, onBack, onAddReclamo, onUpdateReclamo })
 
 export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateReclamo }) {
   const [view, setView] = useState('list');
-  const [clienteId, setClienteId] = useState('c1');
+  const [clienteId, setClienteId] = useState(null);
   const [search, setSearch] = useState('');
 
   const openCliente = (id) => { setClienteId(id); setView('detail'); };
@@ -398,7 +398,8 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
   const clienteRows = clientes.filter(c => !q || (c.nombre + ' ' + c.dni).toLowerCase().includes(q));
 
   if (view === 'detail') {
-    const cli = clientes.find(c => c.id === clienteId) || clientes[0];
+    const cli = clientes.find(c => c.id === clienteId);
+    if (!cli) return <div style={{ padding: 40, color: '#6a717b', textAlign: 'center' }}>Cliente no encontrado.</div>;
     return <ClienteDetail cli={cli} reservas={reservas} onBack={goBack} onAddReclamo={onAddReclamo} onUpdateReclamo={onUpdateReclamo} />;
   }
 

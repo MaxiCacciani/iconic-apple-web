@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import { COBROS, TODAY, MONTH_NAMES, DAY_NAMES, fARS, dnum, dim, firstW, weekdayOf } from '../data/data.js';
+import { TODAY, MONTH_NAMES, DAY_NAMES, fARS, dnum, dim, firstW, weekdayOf } from '../data/data.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
-function buildGarEvents(clientes) {
-  const events = [];
-  clientes.forEach(c => c.compras.forEach(co => {
-    events.push({ y: co.gVence.y, m: co.gVence.m, d: co.gVence.d, cliente: c.nombre, equipo: co.modelo + ' · ' + co.cap, vencida: dnum(co.gVence) < dnum(TODAY) });
-  }));
-  return events;
+function buildGarEvents(ventas) {
+  return ventas
+    .filter(v => v.garantiaVence)
+    .map(v => {
+      const [y, m, d] = v.garantiaVence.split('-').map(Number);
+      return { y, m, d, cliente: v.cliente, equipo: v.equipo, vencida: dnum({ y, m, d }) < dnum(TODAY) };
+    });
 }
 
-export default function Cobros({ clientes }) {
-  const GAR_EVENTS = buildGarEvents(clientes);
+export default function Cobros({ cobros, ventas, onUpdateEstado }) {
+  const GAR_EVENTS = buildGarEvents(ventas);
+
   const [calY, setCalY] = useState(TODAY.y);
   const [calM, setCalM] = useState(TODAY.m);
   const [selY, setSelY] = useState(TODAY.y);
@@ -30,7 +32,7 @@ export default function Cobros({ clientes }) {
   };
   const selDay = (d) => { setSelD(d); setSelY(calY); setSelM(calM); };
 
-  const cobMonth = COBROS.filter(c => c.y === calY && c.m === calM);
+  const cobMonth = cobros.filter(c => c.y === calY && c.m === calM);
   const garMonth = GAR_EVENTS.filter(g => g.y === calY && g.m === calM);
   const mSum = (st) => cobMonth.filter(c => c.estado === st).reduce((a, b) => a + b.monto, 0);
 
@@ -53,7 +55,7 @@ export default function Cobros({ clientes }) {
   const weeks = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
-  const selCob = COBROS.filter(c => c.y === selY && c.m === selM && c.d === selD);
+  const selCob = cobros.filter(c => c.y === selY && c.m === selM && c.d === selD);
   const selGar = GAR_EVENTS.filter(g => g.y === selY && g.m === selM && g.d === selD);
   const dayEmpty = selCob.length + selGar.length === 0;
   const dayName = DAY_NAMES[weekdayOf(selY, selM, selD)];
@@ -69,7 +71,11 @@ export default function Cobros({ clientes }) {
           </h1>
         </div>
         <div style={{ display: 'flex', gap: 24 }}>
-          {[['Por cobrar', fARS(mSum('pendiente')), '#74a8d6'],['Vencido', fARS(mSum('vencida')), '#d98a76'],['Garantías', `${garMonth.length}`, '#9b93d6']].map(([label, val, color]) => (
+          {[
+            ['Por cobrar', fARS(mSum('pendiente')), '#74a8d6'],
+            ['Vencido',    fARS(mSum('vencida')),   '#d98a76'],
+            ['Garantías',  `${garMonth.length}`,    '#9b93d6'],
+          ].map(([label, val, color]) => (
             <div key={label}>
               <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
               <div style={{ fontSize: 19, fontWeight: 600, color, whiteSpace: 'nowrap' }}>{val}</div>
@@ -79,19 +85,19 @@ export default function Cobros({ clientes }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.75fr) minmax(0,1fr)', gap: 22, alignItems: 'start' }}>
-        {/* Calendar */}
+        {/* Calendario */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <span style={SERIF(26)}>{MONTH_NAMES[calM - 1]} {calY}</span>
             <div style={{ display: 'flex', gap: 8 }}>
-              {[['‹', prevMonth],['›', nextMonth]].map(([icon, fn]) => (
+              {[['‹', prevMonth], ['›', nextMonth]].map(([icon, fn]) => (
                 <button key={icon} onClick={fn} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(231,238,246,0.1)', background: 'rgba(231,238,246,0.03)', color: '#a6afba', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</button>
               ))}
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginBottom: 9 }}>
-            {['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d => (
+            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
               <span key={d} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', paddingBottom: 4 }}>{d}</span>
             ))}
           </div>
@@ -104,7 +110,7 @@ export default function Cobros({ clientes }) {
                     ? <div key={ci} />
                     : (
                       <button key={ci} onClick={cell.onClick} style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80, padding: '9px 10px', borderRadius: 12, border: cell.selected ? '1.5px solid #74a8d6' : '1px solid rgba(231,238,246,0.06)', background: cell.selected ? 'rgba(116,168,214,0.08)' : 'rgba(231,238,246,0.015)', cursor: 'pointer', textAlign: 'left' }}>
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           {cell.isToday
                             ? <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', background: '#74a8d6', color: '#14171c', fontSize: 12.5, fontWeight: 700 }}>{cell.num}</span>
                             : <span style={{ fontSize: 13.5, fontWeight: 500, color: '#a6afba' }}>{cell.num}</span>
@@ -112,7 +118,7 @@ export default function Cobros({ clientes }) {
                           {cell.tieneGar && <span style={{ width: 9, height: 9, borderRadius: '50%', border: '2px solid #9b93d6', display: 'inline-block' }} />}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {cell.marks.slice(0,3).map((m, mi) => (
+                          {cell.marks.slice(0, 3).map((m, mi) => (
                             <span key={mi} style={{ width: '100%', height: 5, borderRadius: 4, display: 'block', background: m.esP ? '#74a8d6' : m.esV ? '#d98a76' : '#82b39d' }} />
                           ))}
                         </div>
@@ -124,7 +130,7 @@ export default function Cobros({ clientes }) {
           </div>
 
           <div style={{ display: 'flex', gap: 18, marginTop: 18, flexWrap: 'wrap' }}>
-            {[['#74a8d6','Pendiente'],['#d98a76','Vencida'],['#82b39d','Cobrada']].map(([color, label]) => (
+            {[['#74a8d6', 'Pendiente'], ['#d98a76', 'Vencida'], ['#82b39d', 'Cobrada']].map(([color, label]) => (
               <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#828a94' }}>
                 <span style={{ width: 16, height: 5, borderRadius: 4, background: color, display: 'inline-block' }} />{label}
               </span>
@@ -133,9 +139,15 @@ export default function Cobros({ clientes }) {
               <span style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid #9b93d6', display: 'inline-block' }} />Garantía vence
             </span>
           </div>
+
+          {cobros.length === 0 && (
+            <div style={{ marginTop: 24, padding: '20px', borderRadius: 14, border: '1px solid rgba(231,238,246,0.07)', background: 'rgba(231,238,246,0.02)', color: '#6a717b', fontSize: 13.5, textAlign: 'center' }}>
+              Los cobros aparecen automáticamente cuando registrás ventas en cuotas.
+            </div>
+          )}
         </div>
 
-        {/* Day panel */}
+        {/* Panel del día */}
         <div style={{ position: 'sticky', top: 96, padding: 26, borderRadius: 20, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
           <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Día seleccionado</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 22 }}>
@@ -149,17 +161,25 @@ export default function Cobros({ clientes }) {
                 <span style={{ ...MONO(10, '#74a8d6'), letterSpacing: 1.5, textTransform: 'uppercase' }}>Cobros</span>
                 <span style={{ fontSize: 13, color: '#a6afba' }}>{fARS(selCob.reduce((a, b) => a + b.monto, 0))}</span>
               </div>
-              {selCob.map((d, i) => (
-                <div key={i} style={{ padding: '13px 0', borderBottom: '1px solid rgba(231,238,246,0.05)' }}>
+              {selCob.map((c) => (
+                <div key={c.id} style={{ padding: '13px 0', borderBottom: '1px solid rgba(231,238,246,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
-                    <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{d.cliente}</span>
-                    <span style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{fARS(d.monto)}</span>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{c.cliente}</span>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{fARS(c.monto)}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                    <span style={{ fontSize: 12, color: '#828a94', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.equipo}</span>
-                    {d.estado === 'pendiente' && <span style={{ fontSize: 11, color: '#74a8d6', padding: '2px 9px', borderRadius: 20, background: 'rgba(116,168,214,0.13)' }}>Pendiente</span>}
-                    {d.estado === 'vencida'   && <span style={{ fontSize: 11, color: '#d98a76', padding: '2px 9px', borderRadius: 20, background: 'rgba(217,138,118,0.13)' }}>Vencida</span>}
-                    {d.estado === 'cobrada'   && <span style={{ fontSize: 11, color: '#82b39d', padding: '2px 9px', borderRadius: 20, background: 'rgba(130,179,157,0.13)' }}>Cobrada</span>}
+                  <div style={{ fontSize: 12, color: '#828a94', marginBottom: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.equipo}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    {c.estado === 'pendiente' && <span style={{ fontSize: 11, color: '#74a8d6', padding: '2px 9px', borderRadius: 20, background: 'rgba(116,168,214,0.13)' }}>Pendiente</span>}
+                    {c.estado === 'vencida'   && <span style={{ fontSize: 11, color: '#d98a76', padding: '2px 9px', borderRadius: 20, background: 'rgba(217,138,118,0.13)' }}>Vencida</span>}
+                    {c.estado === 'cobrada'   && <span style={{ fontSize: 11, color: '#82b39d', padding: '2px 9px', borderRadius: 20, background: 'rgba(130,179,157,0.13)' }}>✓ Cobrada</span>}
+                    {c.estado !== 'cobrada' && (
+                      <button
+                        onClick={() => onUpdateEstado(c.id, 'cobrada')}
+                        style={{ fontSize: 11.5, fontWeight: 600, color: '#14171c', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        Marcar cobrada
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -174,7 +194,7 @@ export default function Cobros({ clientes }) {
               {selGar.map((g, i) => (
                 <div key={i} style={{ padding: '13px 0', borderBottom: '1px solid rgba(231,238,246,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{g.cliente}</span>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{g.cliente}</span>
                     {!g.vencida && <span style={{ fontSize: 11, color: '#9b93d6', padding: '2px 9px', borderRadius: 20, background: 'rgba(155,147,214,0.14)' }}>Vence</span>}
                     {g.vencida  && <span style={{ fontSize: 11, color: '#d98a76', padding: '2px 9px', borderRadius: 20, background: 'rgba(217,138,118,0.13)' }}>Vencida</span>}
                   </div>

@@ -1,6 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { supabase } from './lib/supabase.js';
+import * as db from './lib/db.js';
 import Header from './components/Header.jsx';
 import Toast from './components/Toast.jsx';
+import Login from './screens/Login.jsx';
 import Resumen from './screens/Resumen.jsx';
 import Stock from './screens/Stock.jsx';
 import Venta from './screens/Venta.jsx';
@@ -8,16 +11,48 @@ import Cobros from './screens/Cobros.jsx';
 import Reservas from './screens/Reservas.jsx';
 import Clientes from './screens/Clientes.jsx';
 import Ventas from './screens/Ventas.jsx';
-import { EQUIPOS_INIT, CLIENTES_INIT, RESERVAS_INIT, VENTAS_INIT, nextId, TODAY } from './data/data.js';
 
 export default function App() {
-  const [screen, setScreen] = useState('resumen');
-  const [toast, setToast] = useState(null);
-  const [equipos, setEquipos] = useState(EQUIPOS_INIT);
-  const [clientes, setClientes] = useState(CLIENTES_INIT);
-  const [reservas, setReservas] = useState(RESERVAS_INIT);
-  const [ventas, setVentas] = useState(VENTAS_INIT);
+  const [session, setSession]   = useState(undefined);
+  const [screen, setScreen]     = useState('resumen');
+  const [toast, setToast]       = useState(null);
+  const [equipos, setEquipos]   = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [ventas, setVentas]     = useState([]);
+  const [cobros, setCobros]     = useState([]);
+  const [reservas, setReservas] = useState([]);
+  const [loading, setLoading]   = useState(true);
   const toastTimer = useRef(null);
+
+  // Auth
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Carga inicial
+  useEffect(() => {
+    if (session === undefined) return;
+    if (!session) { setLoading(false); return; }
+    setLoading(true);
+    Promise.all([
+      db.fetchEquipos(),
+      db.fetchClientes(),
+      db.fetchVentas(),
+      db.fetchCobros(),
+      db.fetchReservas(),
+    ])
+      .then(([eqs, cls, vts, cbs, rvs]) => {
+        setEquipos(eqs);
+        setClientes(cls);
+        setVentas(vts);
+        setCobros(cbs);
+        setReservas(rvs);
+      })
+      .catch(err => showToast('Error al cargar datos: ' + err.message))
+      .finally(() => setLoading(false));
+  }, [session]);
 
   const go = (s) => setScreen(s);
 
@@ -27,96 +62,256 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), 3400);
   };
 
-  const MONTH_ABBR = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  const todayLabel = `${TODAY.d} ${MONTH_ABBR[TODAY.m - 1]} ${TODAY.y}`;
-  const todayNum = TODAY.y * 10000 + TODAY.m * 100 + TODAY.d;
+  // ─── EQUIPOS ─────────────────────────────────────────────────────────────
 
-  const addEquipo = (item) => {
-    setEquipos(prev => [...prev, { ...item, id: nextId(prev) }]);
-    showToast('Producto agregado al stock');
+  const addEquipo = async (item) => {
+    try {
+      const nuevo = await db.createEquipo(item);
+      setEquipos(prev => [nuevo, ...prev]);
+      showToast('Producto agregado al stock');
+    } catch (e) {
+      showToast('Error al agregar: ' + e.message);
+    }
   };
 
-  const updateEquipo = (updated) => {
-    setEquipos(prev => prev.map(e => e.id === updated.id ? updated : e));
-    showToast('Producto actualizado');
+  const updateEquipo = async (id, updates) => {
+    try {
+      const updated = await db.updateEquipo(id, updates);
+      setEquipos(prev => prev.map(e => e.id === id ? updated : e));
+      showToast('Producto actualizado');
+    } catch (e) {
+      showToast('Error al actualizar: ' + e.message);
+    }
   };
 
-  const addCliente = (data) => {
-    const nuevo = {
-      id: 'c_' + Date.now(),
-      inicial: data.nombre.trim()[0].toUpperCase(),
-      compras: [], plan: null, reclamos: [],
-      ...data,
-    };
-    setClientes(prev => [...prev, nuevo]);
-    return nuevo;
+  // ─── CLIENTES ─────────────────────────────────────────────────────────────
+
+  const addCliente = async (data) => {
+    try {
+      const nuevo = await db.createCliente(data);
+      setClientes(prev => [nuevo, ...prev]);
+      return nuevo;
+    } catch (e) {
+      showToast('Error al registrar cliente: ' + e.message);
+      const fallback = {
+        id: 'local_' + Date.now(),
+        nombre: data.nombre,
+        inicial: data.nombre.trim()[0].toUpperCase(),
+        dni: data.dni || '', tel: data.tel || '', loc: data.loc || '',
+        desde: data.desde || '', compras: [], plan: null, reclamos: [],
+      };
+      setClientes(prev => [...prev, fallback]);
+      return fallback;
+    }
   };
 
-  const addReclamo = (clienteId, reclamo) => {
-    setClientes(prev => prev.map(c =>
-      c.id === clienteId ? { ...c, reclamos: [...(c.reclamos || []), reclamo] } : c
-    ));
-    showToast('Reclamo registrado');
+  // ─── RECLAMOS ─────────────────────────────────────────────────────────────
+
+  const addReclamo = async (clienteId, reclamo) => {
+    try {
+      const nuevo = await db.createReclamo(clienteId, reclamo);
+      setClientes(prev => prev.map(c =>
+        c.id === clienteId ? { ...c, reclamos: [...(c.reclamos || []), nuevo] } : c
+      ));
+      showToast('Reclamo registrado');
+    } catch (e) {
+      showToast('Error al registrar reclamo: ' + e.message);
+    }
   };
 
-  const updateReclamo = (clienteId, reclamoId, updates) => {
-    setClientes(prev => prev.map(c =>
-      c.id === clienteId
-        ? { ...c, reclamos: c.reclamos.map(r => r.id === reclamoId ? { ...r, ...updates } : r) }
-        : c
-    ));
-    showToast('Reclamo actualizado');
+  const updateReclamo = async (clienteId, reclamoId, updates) => {
+    try {
+      await db.updateReclamo(reclamoId, updates);
+      setClientes(prev => prev.map(c =>
+        c.id === clienteId
+          ? { ...c, reclamos: c.reclamos.map(r => r.id === reclamoId ? { ...r, ...updates } : r) }
+          : c
+      ));
+      showToast('Reclamo actualizado');
+    } catch (e) {
+      showToast('Error al actualizar reclamo: ' + e.message);
+    }
   };
 
-  const updateVenta = (id, updates) => {
-    setVentas(prev => prev.map(v => v.id === id ? { ...v, ...updates } : v));
+  // ─── VENTAS ──────────────────────────────────────────────────────────────
+
+  const updateVenta = async (id, updates) => {
+    try {
+      await db.updateVenta(id, updates);
+      setVentas(prev => prev.map(v => v.id === id ? { ...v, ...updates } : v));
+    } catch (e) {
+      showToast('Error al actualizar venta: ' + e.message);
+    }
   };
 
-  const registrarVenta = (ventaData) => {
-    const newVenta = {
-      id: 'new_' + Date.now(),
-      fechaLabel: todayLabel,
-      fechaNum: todayNum,
-      ...ventaData,
-    };
-    setVentas(prev => [newVenta, ...prev]);
-    return newVenta;
+  const handleConfirmVenta = async (ventaData) => {
+    try {
+      const nueva = await db.createVenta(ventaData);
+      // Generar cuotas si corresponde
+      if (ventaData.modalidad === 'cuotas') {
+        const nuevosC = await db.generateCobros(nueva.id, ventaData);
+        if (nuevosC) setCobros(prev => [...prev, ...nuevosC]);
+        // Recargar cobros para tener los IDs correctos
+        db.fetchCobros().then(cbs => setCobros(cbs));
+      }
+      // Marcar equipo como vendido
+      if (ventaData.equipoId) {
+        const eq = equipos.find(e => e.id === ventaData.equipoId);
+        if (eq) {
+          await db.updateEquipo(ventaData.equipoId, { ...eq, estado: 'vendido' });
+          setEquipos(prev => prev.map(e => e.id === ventaData.equipoId ? { ...e, estado: 'vendido' } : e));
+        }
+      }
+      // Agregar equipo de canje al stock
+      if (ventaData.canje && ventaData.canjeEquipoData) {
+        const eqCanje = await db.createEquipo(ventaData.canjeEquipoData);
+        setEquipos(prev => [eqCanje, ...prev]);
+      }
+      setVentas(prev => [nueva, ...prev]);
+      showToast('Venta registrada con éxito');
+      setTimeout(() => go('ventas'), 300);
+    } catch (e) {
+      showToast('Error al registrar venta: ' + e.message);
+    }
   };
 
-  const handleConfirmVenta = (ventaData) => {
-    registrarVenta(ventaData);
-    showToast('Venta registrada con éxito');
-    setTimeout(() => go('ventas'), 300);
+  // ─── RESERVAS ─────────────────────────────────────────────────────────────
+
+  const addReserva = async (data) => {
+    try {
+      const nueva = await db.createReserva(data);
+      setReservas(prev => [nueva, ...prev]);
+      showToast('Reserva registrada');
+    } catch (e) {
+      showToast('Error al registrar reserva: ' + e.message);
+    }
   };
 
-  const convertReserva = (reservaId, ventaData) => {
-    setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'convertida' } : r));
-    registrarVenta(ventaData);
-    showToast('Reserva convertida en venta');
-    setTimeout(() => go('ventas'), 400);
+  const handleConfirmApartado = async (reservaData) => {
+    try {
+      const nueva = await db.createReserva(reservaData);
+      setReservas(prev => [nueva, ...prev]);
+      if (reservaData.equipoId) {
+        const eq = equipos.find(e => e.id === reservaData.equipoId);
+        if (eq) {
+          await db.updateEquipo(reservaData.equipoId, { ...eq, estado: 'reservado' });
+          setEquipos(prev => prev.map(e => e.id === reservaData.equipoId ? { ...e, estado: 'reservado' } : e));
+        }
+      }
+      showToast('Reserva registrada con éxito');
+      setTimeout(() => go('reservas'), 300);
+    } catch (e) {
+      showToast('Error al registrar reserva: ' + e.message);
+    }
   };
+
+  const handleCancelReserva = async (reservaId, equipoId) => {
+    try {
+      await db.updateReservaEstado(reservaId, 'cancelada');
+      setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'cancelada' } : r));
+      if (equipoId) {
+        const eq = equipos.find(e => e.id === equipoId);
+        if (eq) {
+          await db.updateEquipo(equipoId, { ...eq, estado: 'disponible' });
+          setEquipos(prev => prev.map(e => e.id === equipoId ? { ...e, estado: 'disponible' } : e));
+        }
+      }
+      showToast('Reserva cancelada' + (equipoId ? ' · equipo liberado al stock' : ''));
+    } catch (e) {
+      showToast('Error al cancelar reserva: ' + e.message);
+    }
+  };
+
+  const handleDeleteVenta = async (id) => {
+    try {
+      await db.deleteVenta(id);
+      setVentas(prev => prev.filter(v => v.id !== id));
+      showToast('Venta eliminada');
+    } catch (e) {
+      showToast('Error al eliminar venta: ' + e.message);
+    }
+  };
+
+  const convertReserva = async (reservaId, ventaData) => {
+    try {
+      await db.updateReservaEstado(reservaId, 'convertida');
+      setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'convertida' } : r));
+    } catch (e) {
+      // Reserva podría ser de datos iniciales sin UUID
+    }
+    await handleConfirmVenta(ventaData);
+  };
+
+  // ─── COBROS ──────────────────────────────────────────────────────────────
+
+  const updateCobroEstado = async (id, estado) => {
+    try {
+      await db.updateCobroEstado(id, estado);
+      setCobros(prev => prev.map(c => c.id === id ? { ...c, estado } : c));
+    } catch (e) {
+      showToast('Error al actualizar cobro: ' + e.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // ─── Derivar compras por cliente desde ventas ────────────────────────────
+  // La tabla clientes no guarda compras; se derivan de ventas en tiempo real.
+
+  const clientesConCompras = useMemo(() =>
+    clientes.map(c => ({
+      ...c,
+      compras: ventas
+        .filter(v => v.clienteId === c.id || v.cliente === c.nombre)
+        .map(v => {
+          const parts = v.equipo.split(' · ');
+          const gPartes = v.garantiaVence ? v.garantiaVence.split('-').map(Number) : null;
+          return {
+            modelo: parts[0] || v.equipo,
+            cap:    parts[1] || '',
+            color:  parts[2] || '',
+            imei:   v.imei || '',
+            cond:   'Nuevo',
+            bat:    null,
+            usd:    v.usd,
+            fecha:  v.fechaLabel,
+            gVence: gPartes
+              ? { y: gPartes[0], m: gPartes[1], d: gPartes[2] }
+              : { y: 2099, m: 1, d: 1 },
+          };
+        }),
+    })),
+    [clientes, ventas]
+  );
+
+  // ─── Renders ─────────────────────────────────────────────────────────────
+
+  if (session === undefined) return null;
+
+  if (!session) return <Login onLogin={setSession} />;
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#121417', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6a717b', fontFamily: "'Hanken Grotesk', sans-serif", fontSize: 14 }}>
+        Cargando datos…
+      </div>
+    );
+  }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'radial-gradient(120% 80% at 80% -12%, #1d232a 0%, #121417 54%)',
-      color: '#eef2f7',
-      fontFamily: "'Hanken Grotesk', sans-serif",
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
-      <Header screen={screen} onNav={go} />
-
+    <div style={{ minHeight: '100vh', background: 'radial-gradient(120% 80% at 80% -12%, #1d232a 0%, #121417 54%)', color: '#eef2f7', fontFamily: "'Hanken Grotesk', sans-serif", display: 'flex', flexDirection: 'column' }}>
+      <Header screen={screen} onNav={go} onLogout={handleLogout} />
       <main style={{ flex: 1, width: '100%', maxWidth: 1320, margin: '0 auto', padding: '38px 32px 80px' }}>
-        {screen === 'resumen'  && <Resumen equipos={equipos} onGoCobros={() => go('cobros')} />}
+        {screen === 'resumen'  && <Resumen equipos={equipos} ventas={ventas} cobros={cobros} reservas={reservas} onGoCobros={() => go('cobros')} />}
         {screen === 'stock'    && <Stock equipos={equipos} onAdd={addEquipo} onUpdate={updateEquipo} />}
-        {screen === 'venta'    && <Venta equipos={equipos} clientes={clientes} onConfirm={handleConfirmVenta} onAddCliente={addCliente} />}
-        {screen === 'cobros'   && <Cobros clientes={clientes} />}
-        {screen === 'reservas' && <Reservas reservas={reservas} onConvert={convertReserva} />}
-        {screen === 'clientes' && <Clientes clientes={clientes} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} />}
-        {screen === 'ventas'   && <Ventas ventas={ventas} onUpdateVenta={updateVenta} />}
+        {screen === 'venta'    && <Venta equipos={equipos} clientes={clientesConCompras} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} />}
+        {screen === 'cobros'   && <Cobros cobros={cobros} ventas={ventas} onUpdateEstado={updateCobroEstado} />}
+        {screen === 'reservas' && <Reservas reservas={reservas} equipos={equipos} onConvert={convertReserva} onCancelReserva={handleCancelReserva} />}
+        {screen === 'clientes' && <Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} />}
+        {screen === 'ventas'   && <Ventas ventas={ventas} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} />}
       </main>
-
       <Toast msg={toast} />
     </div>
   );

@@ -6,7 +6,7 @@ const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', mono
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 const TC = 1400;
 
-function ConvertirModal({ reserva, onConfirm, onClose }) {
+function ConvertirModal({ reserva, equipos, onConfirm, onClose }) {
   const saldoPrecio = reserva.usd * TC;
   const saldoRestante = Math.max(0, saldoPrecio - reserva.sena);
   const [metodo, setMetodo] = useState('Transferencia');
@@ -15,22 +15,32 @@ function ConvertirModal({ reserva, onConfirm, onClose }) {
   const [cuotasCustom, setCuotasCustom] = useState(false);
   const [anticipo, setAnticipo] = useState('');
 
+  const equipoRef = reserva.equipoId ? equipos.find(e => e.id === reserva.equipoId) : null;
+
   const antNum = parseInt(anticipo || '0', 10) || 0;
   const aFinanciarTotal = Math.max(0, saldoRestante - antNum);
   const cuotaMonto = modalidad === 'cuotas' && cuotas ? Math.round(aFinanciarTotal / cuotas) : 0;
 
   const handleConfirm = () => {
+    const equipoLabel = [reserva.equipo, reserva.spec].filter(Boolean).join(' · ');
     onConfirm({
-      equipo: `${reserva.equipo} · ${reserva.spec}`,
-      imei: '',
-      categoria: 'iPhone',
+      equipoId: reserva.equipoId || null,
+      clienteId: reserva.clienteId || null,
+      equipo: equipoLabel,
+      imei: equipoRef?.imei || '',
+      categoria: equipoRef?.categoria || '',
       cliente: reserva.cliente,
       usd: reserva.usd,
+      costo: equipoRef?.costo || null,
+      tc: TC,
       modalidad: modalidad === 'cuotas' ? 'cuotas' : 'contado',
       cuotas: modalidad === 'cuotas' ? cuotas : null,
       anticipo: modalidad === 'cuotas' ? antNum : null,
       metodo,
       cuotaMonto: modalidad === 'cuotas' ? cuotaMonto : null,
+      canje: false,
+      canjeEquipo: null,
+      canjeValor: null,
     });
   };
 
@@ -43,6 +53,7 @@ function ConvertirModal({ reserva, onConfirm, onClose }) {
       <div style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(116,168,214,0.2)', background: 'rgba(116,168,214,0.05)', marginBottom: 22 }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: '#eef2f7' }}>{reserva.equipo}</div>
         <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 2 }}>{reserva.spec}</div>
+        {equipoRef?.imei && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: '#6a717b', marginTop: 5, letterSpacing: 0.3 }}>IMEI {equipoRef.imei}</div>}
         <div style={{ display: 'flex', gap: 24, marginTop: 14, flexWrap: 'wrap' }}>
           <div>
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>Cliente</div>
@@ -138,10 +149,11 @@ function ConvertirModal({ reserva, onConfirm, onClose }) {
   );
 }
 
-export default function Reservas({ reservas, onConvert }) {
+export default function Reservas({ reservas, equipos, onConvert, onCancelReserva }) {
   const [q, setQ] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('activa');
   const [convertiendo, setConvertiendo] = useState(null);
+  const [cancelandoId, setCancelandoId] = useState(null);
 
   const qLow = q.trim().toLowerCase();
   const filtered = reservas.filter(r => {
@@ -165,11 +177,11 @@ export default function Reservas({ reservas, onConvert }) {
       {convertiendo && (
         <ConvertirModal
           reserva={convertiendo}
+          equipos={equipos}
           onConfirm={(ventaData) => { onConvert(convertiendo.id, ventaData); setConvertiendo(null); }}
           onClose={() => setConvertiendo(null)}
         />
       )}
-
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 9 }}>Apartados</div>
@@ -177,7 +189,7 @@ export default function Reservas({ reservas, onConvert }) {
             Equipos <span style={SERIF(33, '#9ec6ec')}>reservados</span>
           </h1>
         </div>
-        <div style={{ display: 'flex', gap: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 26 }}>
           <div><div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Activas</div><div style={{ fontSize: 19, fontWeight: 600 }}>{activas.length} <span style={{ fontSize: 13, color: '#828a94', fontWeight: 400 }}>de {reservas.length}</span></div></div>
           <div><div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>En señas</div><div style={{ fontSize: 19, fontWeight: 600, color: '#74a8d6', whiteSpace: 'nowrap' }}>{fARS(senasTot)}</div></div>
         </div>
@@ -191,7 +203,7 @@ export default function Reservas({ reservas, onConvert }) {
           {q && <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', color: '#6a717b', cursor: 'pointer', fontSize: 15, padding: 0 }}>×</button>}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {[['activa','Activas'],['convertida','Convertidas'],['todas','Todas']].map(([k, l]) => (
+          {[['activa','Activas'],['convertida','Convertidas'],['cancelada','Canceladas'],['todas','Todas']].map(([k, l]) => (
             <button key={k} onClick={() => setFiltroEstado(k)} style={pill(filtroEstado === k)}>{l}</button>
           ))}
         </div>
@@ -204,13 +216,19 @@ export default function Reservas({ reservas, onConvert }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
         {filtered.map(r => {
           const pct = Math.round(r.sena / (r.usd * TC) * 100);
+          const equipoRef = r.equipoId ? equipos.find(e => e.id === r.equipoId) : null;
           const esActiva = r.estado === 'activa';
+          const esCancelada = r.estado === 'cancelada';
+          const accentColor = esActiva ? '#82b39d' : esCancelada ? '#d98a76' : '#6a717b';
+          const borderColor = esActiva ? 'rgba(130,179,157,0.2)' : esCancelada ? 'rgba(217,138,118,0.15)' : 'rgba(231,238,246,0.08)';
+          const confirmando = cancelandoId === r.id;
           return (
-            <div key={r.id} style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'minmax(0,2.1fr) minmax(0,1fr) minmax(0,1.5fr)', gap: 22, alignItems: 'center', padding: '22px 24px 22px 28px', borderRadius: 16, border: `1px solid ${esActiva ? 'rgba(130,179,157,0.2)' : 'rgba(231,238,246,0.08)'}`, background: '#181b20', overflow: 'hidden', opacity: esActiva ? 1 : 0.6 }}>
-              <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: esActiva ? '#82b39d' : '#6a717b' }} />
+            <div key={r.id} style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'minmax(0,2.1fr) minmax(0,1fr) minmax(0,1.5fr)', gap: 22, alignItems: 'center', padding: '22px 24px 22px 28px', borderRadius: 16, border: `1px solid ${borderColor}`, background: '#181b20', overflow: 'hidden', opacity: esActiva ? 1 : 0.6 }}>
+              <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: accentColor }} />
               <div>
                 <div style={{ fontSize: 16.5, fontWeight: 600, color: '#eef2f7' }}>{r.equipo}</div>
                 <div style={{ fontSize: 13, color: '#828a94', marginTop: 2 }}>{r.spec}</div>
+                {equipoRef?.imei && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: '#6a717b', marginTop: 5, letterSpacing: 0.3 }}>IMEI {equipoRef.imei}</div>}
                 <div style={{ fontSize: 13, color: '#a6afba', marginTop: 9 }}>Reservado por <span style={{ color: '#eef2f7', fontWeight: 500 }}>{r.cliente}</span></div>
               </div>
               <div>
@@ -221,16 +239,38 @@ export default function Reservas({ reservas, onConvert }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                  {esActiva
-                    ? <span style={{ fontSize: 12, color: '#b6cdc1', padding: '4px 11px', borderRadius: 20, background: 'rgba(130,179,157,0.13)' }}>Activa</span>
-                    : <span style={{ fontSize: 12, color: '#a6afba', padding: '4px 11px', borderRadius: 20, background: 'rgba(231,238,246,0.06)' }}>Convertida</span>
-                  }
+                  {esActiva    && <span style={{ fontSize: 12, color: '#b6cdc1', padding: '4px 11px', borderRadius: 20, background: 'rgba(130,179,157,0.13)' }}>Activa</span>}
+                  {esCancelada && <span style={{ fontSize: 12, color: '#d98a76', padding: '4px 11px', borderRadius: 20, background: 'rgba(217,138,118,0.1)' }}>Cancelada</span>}
+                  {!esActiva && !esCancelada && <span style={{ fontSize: 12, color: '#a6afba', padding: '4px 11px', borderRadius: 20, background: 'rgba(231,238,246,0.06)' }}>Convertida</span>}
                   <span style={{ ...MONO(12, '#a6afba') }}>Reservado {r.fecha}</span>
                 </div>
-                {esActiva
-                  ? <button onClick={() => setConvertiendo(r)} style={{ fontSize: 13, fontWeight: 600, color: '#14171c', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', padding: '8px 15px', borderRadius: 10, cursor: 'pointer', border: 'none', whiteSpace: 'nowrap', boxShadow: '0 4px 12px -6px rgba(200,220,240,0.5)' }}>Convertir en venta →</button>
-                  : <span style={{ fontSize: 13, fontWeight: 500, color: '#82b39d', whiteSpace: 'nowrap' }}>✓ Entregado al cliente</span>
-                }
+                {esActiva && !confirmando && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => setCancelandoId(r.id)}
+                      style={{ fontSize: 12, fontWeight: 500, color: '#d98a76', background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.25)', padding: '7px 12px', borderRadius: 9, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      Cancelar reserva
+                    </button>
+                    <button onClick={() => setConvertiendo(r)} style={{ fontSize: 13, fontWeight: 600, color: '#14171c', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', padding: '8px 15px', borderRadius: 10, cursor: 'pointer', border: 'none', whiteSpace: 'nowrap', boxShadow: '0 4px 12px -6px rgba(200,220,240,0.5)' }}>Convertir en venta →</button>
+                  </div>
+                )}
+                {esActiva && confirmando && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 7 }}>
+                    <span style={{ fontSize: 12, color: '#d98a76' }}>¿Confirmar cancelación?{r.equipoId ? ' El equipo vuelve al stock.' : ''}</span>
+                    <div style={{ display: 'flex', gap: 7 }}>
+                      <button onClick={() => setCancelandoId(null)} style={{ fontSize: 12, color: '#a6afba', background: 'none', border: '1px solid rgba(231,238,246,0.15)', padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>No</button>
+                      <button
+                        onClick={() => { onCancelReserva(r.id, r.equipoId); setCancelandoId(null); }}
+                        style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: '#c0655a', border: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer' }}
+                      >
+                        Sí, cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {!esActiva && !esCancelada && <span style={{ fontSize: 13, fontWeight: 500, color: '#82b39d', whiteSpace: 'nowrap' }}>✓ Entregado al cliente</span>}
+                {esCancelada && <span style={{ fontSize: 13, color: '#6a717b', whiteSpace: 'nowrap' }}>Reserva no concretada</span>}
               </div>
             </div>
           );

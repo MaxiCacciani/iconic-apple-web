@@ -63,7 +63,7 @@ const NAV_ITEMS = [
   { key: 'clientes', label: 'Clientes' },
 ];
 
-export default function Header({ screen, onNav }) {
+export default function Header({ screen, onNav, onLogout }) {
   return (
     <header style={S.header}>
       <div style={S.logoWrap}>
@@ -98,6 +98,15 @@ export default function Header({ screen, onNav }) {
         <button onClick={() => onNav('venta')} style={S.ctaBtn}>
           <span style={{ fontSize: 17, lineHeight: 0, marginTop: -2 }}>+</span> Registrar venta
         </button>
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            title="Cerrar sesión"
+            style={{ marginLeft: 6, background: 'none', border: '1px solid rgba(231,238,246,0.1)', borderRadius: 9, padding: '7px 11px', color: '#6a717b', fontSize: 12.5, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Salir
+          </button>
+        )}
       </nav>
     </header>
   );

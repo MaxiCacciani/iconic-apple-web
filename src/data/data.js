@@ -1,5 +1,6 @@
 export const TC = 1400;
-export const TODAY = { y: 2026, m: 6, d: 15 };
+const _now = new Date();
+export const TODAY = { y: _now.getFullYear(), m: _now.getMonth() + 1, d: _now.getDate() };
 
 export const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 export const MONTH_ABBR  = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];

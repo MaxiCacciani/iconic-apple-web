@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { esPhone, fARS, fUSD, batColor, TC } from '../data/data.js';
+import { esPhone, fARS, fUSD, batColor, TC, CATEGORIAS, getModelos, getCaps, getColores } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
@@ -111,7 +111,36 @@ function NuevoClienteModal({ nombre: nombreInit, onSave, onClose }) {
   );
 }
 
-export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
+const CANJE_SEL = {
+  width: '100%', padding: '10px 14px', borderRadius: 10,
+  background: '#1e2228', border: '1px solid rgba(231,238,246,0.09)',
+  color: '#eef2f7', fontSize: 14, appearance: 'none', boxSizing: 'border-box',
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236a717b' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+};
+const CANJE_IN = { width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14, boxSizing: 'border-box' };
+const CANJE_LB = { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, color: '#6a717b', display: 'block' };
+
+function CanjeCombo({ value, onChange, options, placeholder }) {
+  if (!options || options.length === 0)
+    return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={CANJE_IN} />;
+  const isCustom = value !== '' && !options.includes(value);
+  const sel = isCustom ? '__otro__' : value;
+  return (
+    <>
+      <select value={sel} onChange={e => { if (e.target.value === '__otro__') onChange(''); else onChange(e.target.value); }} style={CANJE_SEL}>
+        <option value="">— Seleccionar —</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        <option value="__otro__">Otro…</option>
+      </select>
+      {(isCustom || sel === '__otro__') && (
+        <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ ...CANJE_IN, marginTop: 8 }} />
+      )}
+    </>
+  );
+}
+
+export default function Venta({ equipos, clientes, onConfirm, onConfirmApartado, onAddCliente }) {
   const tc = TC;
   const [equipoId, setEquipoId] = useState(null);
   const [modalidad, setModalidad] = useState('contado');
@@ -128,7 +157,13 @@ export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
   const [seniaContado, setSeniaContado] = useState('');
   // Plan canje
   const [canje, setCanje] = useState(false);
-  const [canjeEquipo, setCanjeEquipo] = useState('');
+  const [canjeCategoria, setCanjeCategoria] = useState('iPhone');
+  const [canjeModelo, setCanjeModelo] = useState('');
+  const [canjeCap, setCanjeCap] = useState('');
+  const [canjeColor, setCanjeColor] = useState('');
+  const [canjeCond, setCanjeCond] = useState('Usado');
+  const [canjeImei, setCanjeImei] = useState('');
+  const [canjeBat, setCanjeBat] = useState('');
   const [canjeValor, setCanjeValor] = useState('');
 
   const selEq = equipos.find(e => e.id === equipoId) || null;
@@ -142,6 +177,8 @@ export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
   const cuotaMonto = esCuotas && cuotas ? Math.round(aFinanciar / cuotas) : 0;
   const saldoContado = Math.max(0, vPrecioARS - seniaNum);
   const saldoTrasCanje = Math.max(0, vPrecioARS - canjeNum);
+  const canjeIsPhone = esPhone(canjeCategoria);
+  const canjeEquipoLabel = [canjeModelo, canjeCap, canjeColor].filter(Boolean).join(' · ');
 
   const cq = clienteSearch.trim().toLowerCase();
   const clienteMatches = clientes.filter(c => !cq || (c.nombre + ' ' + c.dni).toLowerCase().includes(cq)).slice(0, 5);
@@ -161,6 +198,8 @@ export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
   };
 
   const buildVentaData = () => ({
+    equipoId: equipoId,
+    clienteId: clienteId,
     equipo: [selEq.modelo, selEq.cap, selEq.color].filter(Boolean).join(' · '),
     imei: selEq.imei || '',
     categoria: selEq.categoria,
@@ -168,14 +207,39 @@ export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
     usd: vPrecioUSD,
     costo: selEq.costo || null,
     tc: TC,
-    modalidad: esCuotas ? 'cuotas' : (tieneApartado ? 'apartado' : 'contado'),
+    modalidad: esCuotas ? 'cuotas' : 'contado',
     cuotas: esCuotas ? cuotas : null,
-    anticipo: esCuotas ? antNum : (tieneApartado ? seniaNum : null),
+    anticipo: esCuotas ? antNum : null,
     metodo,
     cuotaMonto: esCuotas ? cuotaMonto : null,
     canje,
-    canjeEquipo: canje ? canjeEquipo : null,
+    canjeEquipo: canje ? canjeEquipoLabel : null,
     canjeValor: canje ? canjeNum : null,
+    canjeEquipoData: canje && canjeModelo ? {
+      categoria: canjeCategoria,
+      modelo: canjeModelo,
+      cap: canjeCap || null,
+      color: canjeColor || null,
+      cond: canjeCond,
+      bat: canjeBat ? parseInt(canjeBat, 10) : null,
+      imei: canjeImei || '',
+      defectos: '',
+      usd: Math.round(canjeNum / TC),
+      costo: Math.round(canjeNum / TC),
+      proveedor: 'Plan canje',
+      estado: 'disponible',
+      cantidad: 1,
+    } : null,
+  });
+
+  const buildReservaData = () => ({
+    equipoId: equipoId,
+    clienteId: clienteId,
+    equipo: selEq.modelo,
+    spec: [selEq.cap, selEq.color].filter(Boolean).join(' · '),
+    cliente,
+    sena: seniaNum,
+    usd: vPrecioUSD,
   });
 
   const stepLabel = () => ({ ...MONO(11, '#74a8d6'), border: '1px solid rgba(116,168,214,0.4)', borderRadius: 6, padding: '2px 7px' });
@@ -340,7 +404,7 @@ export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
 
             {/* Toggle Plan Canje */}
             <button
-              onClick={() => { setCanje(!canje); setCanjeEquipo(''); setCanjeValor(''); }}
+              onClick={() => { setCanje(!canje); setCanjeCategoria('iPhone'); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); setCanjeCond('Usado'); setCanjeImei(''); setCanjeBat(''); setCanjeValor(''); }}
               style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '13px 16px', borderRadius: 12, border: `1px solid ${canje ? 'rgba(166,175,186,0.5)' : 'rgba(231,238,246,0.1)'}`, background: canje ? 'rgba(166,175,186,0.1)' : 'rgba(231,238,246,0.02)', cursor: 'pointer', marginBottom: 16 }}
             >
               <span style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${canje ? '#a6afba' : 'rgba(231,238,246,0.25)'}`, background: canje ? 'rgba(166,175,186,0.3)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -354,21 +418,72 @@ export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
 
             {/* Detalle del canje */}
             {canje && (
-              <div style={{ padding: 18, borderRadius: 13, border: '1px solid rgba(166,175,186,0.2)', background: 'rgba(166,175,186,0.04)', marginBottom: 16 }}>
-                <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 9 }}>Equipo entregado en canje</div>
-                <input
-                  value={canjeEquipo}
-                  onChange={e => setCanjeEquipo(e.target.value)}
-                  placeholder="ej. iPhone 13 · 128 GB · Negro"
-                  style={inputStyle}
-                />
-                <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 16, marginBottom: 9 }}>Valor del equipo (ARS)</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)' }}>
-                  <span style={{ color: '#828a94', fontSize: 15 }}>$</span>
-                  <input type="text" inputMode="numeric" value={canjeValor} onChange={e => setCanjeValor(e.target.value.replace(/[^0-9]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
+              <div style={{ padding: 18, borderRadius: 13, border: '1px solid rgba(166,175,186,0.2)', background: 'rgba(166,175,186,0.04)', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', color: '#6a717b' }}>Equipo entregado en canje</div>
+
+                {/* Categoría */}
+                <div>
+                  <span style={CANJE_LB}>Categoría</span>
+                  <select value={canjeCategoria} onChange={e => { setCanjeCategoria(e.target.value); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); }} style={CANJE_SEL}>
+                    {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
+
+                {/* Modelo */}
+                <div>
+                  <span style={CANJE_LB}>Modelo</span>
+                  <CanjeCombo value={canjeModelo} onChange={setCanjeModelo} options={getModelos(canjeCategoria)} placeholder="ej. iPhone 13" />
+                </div>
+
+                {/* Cap + Color */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <span style={CANJE_LB}>Capacidad</span>
+                    <CanjeCombo value={canjeCap} onChange={setCanjeCap} options={canjeIsPhone ? getCaps(canjeModelo) : []} placeholder="ej. 128 GB" />
+                  </div>
+                  <div>
+                    <span style={CANJE_LB}>Color</span>
+                    <CanjeCombo value={canjeColor} onChange={setCanjeColor} options={canjeIsPhone ? getColores(canjeModelo) : []} placeholder="ej. Negro" />
+                  </div>
+                </div>
+
+                {/* Condición */}
+                <div>
+                  <span style={CANJE_LB}>Condición</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {['Nuevo','Usado'].map(c => (
+                      <button key={c} onClick={() => setCanjeCond(c)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `1px solid ${canjeCond === c ? 'rgba(116,168,214,0.5)' : 'rgba(231,238,246,0.09)'}`, background: canjeCond === c ? 'rgba(116,168,214,0.12)' : 'rgba(231,238,246,0.02)', color: canjeCond === c ? '#9ec6ec' : '#828a94', fontSize: 13.5, fontWeight: canjeCond === c ? 600 : 400, cursor: 'pointer' }}>{c}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* IMEI + Batería */}
+                <div style={{ display: 'grid', gridTemplateColumns: canjeIsPhone ? '1.6fr 1fr' : '1fr', gap: 12 }}>
+                  {canjeIsPhone && (
+                    <div>
+                      <span style={CANJE_LB}>IMEI</span>
+                      <input value={canjeImei} onChange={e => setCanjeImei(e.target.value)} placeholder="350000000000000" style={CANJE_IN} />
+                    </div>
+                  )}
+                  {canjeIsPhone && (
+                    <div>
+                      <span style={CANJE_LB}>Batería (%)</span>
+                      <input type="text" inputMode="numeric" value={canjeBat} onChange={e => setCanjeBat(e.target.value.replace(/[^0-9]/g,''))} placeholder="ej. 87" style={CANJE_IN} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Valor canje */}
+                <div>
+                  <span style={CANJE_LB}>Valor del equipo (ARS) — será el costo en stock</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)' }}>
+                    <span style={{ color: '#828a94', fontSize: 15 }}>$</span>
+                    <input type="text" inputMode="numeric" value={canjeValor} onChange={e => setCanjeValor(e.target.value.replace(/[^0-9]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
+                  </div>
+                </div>
+
                 {canjeNum > 0 && vPrecioARS > 0 && (
-                  <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.08)' }}>
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.08)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: '#828a94', marginBottom: 6 }}>
                       <span>Precio del equipo</span><span>{fARS(vPrecioARS)}</span>
                     </div>
@@ -440,7 +555,7 @@ export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
                   <span style={{ fontSize: 13.5, color: '#828a94', flexShrink: 0 }}>Canje</span>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 13.5, color: '#82b39d', fontWeight: 500, whiteSpace: 'nowrap' }}>{fARS(canjeNum)}</div>
-                    {canjeEquipo && <div style={{ fontSize: 11, color: '#6a717b', marginTop: 1 }}>{canjeEquipo}</div>}
+                    {canjeEquipoLabel && <div style={{ fontSize: 11, color: '#6a717b', marginTop: 1 }}>{canjeEquipoLabel}</div>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -506,8 +621,8 @@ export default function Venta({ equipos, clientes, onConfirm, onAddCliente }) {
 
           <div style={{ marginTop: 22 }}>
             {canConfirm
-              ? <button onClick={() => onConfirm(buildVentaData())} style={{ width: '100%', padding: 15, borderRadius: 13, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(180,200,220,0.7)' }}>
-                {tieneApartado ? 'Registrar apartado' : 'Confirmar venta'}
+              ? <button onClick={() => tieneApartado ? onConfirmApartado(buildReservaData()) : onConfirm(buildVentaData())} style={{ width: '100%', padding: 15, borderRadius: 13, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(180,200,220,0.7)' }}>
+                {tieneApartado ? 'Registrar reserva' : 'Confirmar venta'}
               </button>
               : <div style={{ width: '100%', padding: 15, borderRadius: 13, background: 'rgba(231,238,246,0.04)', color: '#6a717b', fontSize: 15, fontWeight: 600, textAlign: 'center' }}>Elegí equipo y cliente</div>
             }
