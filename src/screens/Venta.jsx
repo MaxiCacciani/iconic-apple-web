@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { EQUIPOS, CLIENTES, fARS, fUSD } from '../data/data.js';
+import { fARS, fUSD } from '../data/data.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
-export default function Venta({ onConfirm }) {
+export default function Venta({ equipos, clientes, onConfirm }) {
   const tc = 1400;
   const [equipoId, setEquipoId] = useState(null);
   const [modalidad, setModalidad] = useState('contado');
@@ -14,8 +14,8 @@ export default function Venta({ onConfirm }) {
   const [cliente, setCliente] = useState('');
   const [clienteSearch, setClienteSearch] = useState('');
 
-  const disp = EQUIPOS.filter(e => e.estado === 'disponible');
-  const selEq = EQUIPOS.find(e => e.id === equipoId) || null;
+  const disp = equipos.filter(e => e.estado === 'disponible');
+  const selEq = equipos.find(e => e.id === equipoId) || null;
   const vPrecioUSD = selEq ? selEq.usd : 0;
   const vPrecioARS = vPrecioUSD * tc;
   const antNum = parseInt(anticipo || '0', 10) || 0;
@@ -23,7 +23,7 @@ export default function Venta({ onConfirm }) {
   const aFinanciar = Math.max(0, vPrecioARS - antNum);
   const cuotaMonto = esCuotas && cuotas ? Math.round(aFinanciar / cuotas) : 0;
   const cq = clienteSearch.trim().toLowerCase();
-  const clienteMatches = CLIENTES.filter(c => !cq || (c.nombre + ' ' + c.dni).toLowerCase().includes(cq)).slice(0, 4);
+  const clienteMatches = clientes.filter(c => !cq || (c.nombre + ' ' + c.dni).toLowerCase().includes(cq)).slice(0, 4);
   const canConfirm = !!selEq && !!cliente;
 
   const stepLabel = (n) => ({ ...MONO(11, '#74a8d6'), border: '1px solid rgba(116,168,214,0.4)', borderRadius: 6, padding: '2px 7px' });

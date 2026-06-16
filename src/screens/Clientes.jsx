@@ -1,78 +1,181 @@
 import { useState } from 'react';
-import { CLIENTES, RESERVAS, TODAY, fARS, fUSD, dnum, mesesRest, gvFmt, saldoDe } from '../data/data.js';
+import { RESERVAS, TODAY, DIAGNOSTICOS, fARS, fUSD, dnum, mesesRest, gvFmt, saldoDe } from '../data/data.js';
+import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
-export default function Clientes() {
-  const [view, setView] = useState('list');
-  const [clienteId, setClienteId] = useState('c1');
-  const [search, setSearch] = useState('');
+const ESTADO_RECLAMO_COLORS = {
+  'Pendiente':   { bg: 'rgba(116,168,214,0.13)', color: '#74a8d6' },
+  'En gestión':  { bg: 'rgba(155,147,214,0.13)', color: '#9b93d6' },
+  'Resuelto':    { bg: 'rgba(130,179,157,0.13)', color: '#82b39d' },
+};
 
-  const openCliente = (id) => { setClienteId(id); setView('detail'); };
-  const goBack = () => setView('list');
+function FieldLabel({ children }) {
+  return <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, color: '#6a717b' }}>{children}</div>;
+}
+function FieldSelect({ value, onChange, options }) {
+  return (
+    <select value={value} onChange={onChange} style={{ width: '100%', padding: '11px 14px', borderRadius: 10, background: '#1e2228', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14, appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236a717b' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}>
+      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+    </select>
+  );
+}
 
-  const q = search.trim().toLowerCase();
-  const clienteRows = CLIENTES.filter(c => !q || (c.nombre + ' ' + c.dni).toLowerCase().includes(q));
+function ReclamoModal({ compras, onSave, onClose }) {
+  const [equipoIdx, setEquipoIdx] = useState(0);
+  const [diagnostico, setDiagnostico] = useState(DIAGNOSTICOS[0]);
+  const [otroTexto, setOtroTexto] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [estado, setEstado] = useState('Pendiente');
+  const [resolucion, setResolucion] = useState('');
 
-  if (view === 'detail') {
-    const cli = CLIENTES.find(c => c.id === clienteId) || CLIENTES[0];
-    const enMora = !!(cli.plan && cli.plan.mora);
-    const cliCompras = cli.compras.map(co => {
-      const mr = mesesRest(co.gVence);
-      const vig = dnum(co.gVence) >= dnum(TODAY);
-      let gl;
-      if (vig) gl = mr >= 1 ? `Garantía · ${mr} ${mr === 1 ? 'mes' : 'meses'}` : 'Garantía · menos de 1 mes';
-      else gl = 'Garantía vencida · ' + gvFmt(co.gVence);
-      return { ...co, garVigente: vig, garLabel: gl };
+  const esOtro = diagnostico === 'Otro';
+  const equipo = compras[equipoIdx];
+
+  const handleSave = () => {
+    const diagFinal = esOtro ? (otroTexto.trim() || 'Otro') : diagnostico;
+    onSave({
+      id: 'rcl' + Date.now(),
+      equipoLabel: equipo?.modelo || '—',
+      imei: equipo?.imei || '',
+      diagnostico: diagFinal,
+      descripcion,
+      fecha: `${TODAY.d} jun ${TODAY.y}`,
+      estado,
+      resolucion,
     });
-    const plan = cli.plan;
-    let planView = null;
-    if (plan) {
-      planView = {
-        equipo: plan.equipo, prox: plan.prox, mora: plan.mora || '',
-        tieneMora: !!plan.mora,
-        restanteFmt: fARS((plan.total - plan.pagadas) * plan.monto),
-        label: `${plan.pagadas} de ${plan.total} cuotas pagadas`,
-        dots: Array.from({ length: plan.total }, (_, i) => ({ pagada: i < plan.pagadas })),
-      };
-    }
-    const reservasCli = RESERVAS.filter(r => r.cliente === cli.nombre && r.estado === 'activa');
+  };
 
-    return (
-      <div>
-        <button onClick={goBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#828a94', fontSize: 13.5, marginBottom: 18, padding: 0 }}>‹ Volver al directorio</button>
+  const fw = { marginBottom: 16 };
+  const textarea = { width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14, resize: 'vertical', minHeight: 72, fontFamily: "'Hanken Grotesk', sans-serif" };
 
-        {/* Header card */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '28px 32px', borderRadius: 20, border: '1px solid rgba(116,168,214,0.2)', background: 'linear-gradient(160deg, rgba(116,168,214,0.07), #181b20 55%)', marginBottom: 16, flexWrap: 'wrap', gap: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
-            <div style={{ width: 66, height: 66, borderRadius: '50%', border: '1px solid rgba(116,168,214,0.4)', background: 'rgba(116,168,214,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={SERIF(30, '#9ec6ec')}>{cli.inicial}</span>
+  return (
+    <Modal title="Registrar reclamo" onClose={onClose} width={520}>
+      {compras.length === 0 ? (
+        <p style={{ color: '#6a717b', fontSize: 14 }}>El cliente no tiene equipos comprados registrados.</p>
+      ) : (
+        <>
+          <div style={fw}>
+            <FieldLabel>Equipo</FieldLabel>
+            <FieldSelect value={equipoIdx} onChange={e => setEquipoIdx(Number(e.target.value))}
+              options={compras.map((c, i) => [i, `${c.modelo} · ${c.cap} · ${c.fecha}`])} />
+          </div>
+
+          <div style={fw}>
+            <FieldLabel>Diagnóstico</FieldLabel>
+            <FieldSelect value={diagnostico} onChange={e => setDiagnostico(e.target.value)}
+              options={DIAGNOSTICOS.map(d => [d, d])} />
+          </div>
+
+          {esOtro && (
+            <div style={fw}>
+              <FieldLabel>Describir el problema</FieldLabel>
+              <input value={otroTexto} onChange={e => setOtroTexto(e.target.value)} placeholder="Describí el problema…"
+                style={{ width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14 }} />
+            </div>
+          )}
+
+          <div style={fw}>
+            <FieldLabel>Descripción adicional (opcional)</FieldLabel>
+            <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Detalles extra del reclamo…" style={textarea} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, ...fw }}>
+            <div>
+              <FieldLabel>Estado</FieldLabel>
+              <FieldSelect value={estado} onChange={e => setEstado(e.target.value)}
+                options={[['Pendiente','Pendiente'],['En gestión','En gestión'],['Resuelto','Resuelto']]} />
             </div>
             <div>
-              <div style={SERIF(33)}>{cli.nombre}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 11, flexWrap: 'wrap' }}>
-                <span style={{ ...MONO(12, '#a6afba') }}>DNI {cli.dni}</span>
-                <span style={{ color: '#3a4047' }}>·</span>
-                <span style={{ fontSize: 13, color: '#a6afba' }}>{cli.loc}</span>
-                <span style={{ color: '#3a4047' }}>·</span>
-                <span style={{ fontSize: 13, color: '#a6afba' }}>Cliente desde {cli.desde}</span>
-                <span style={{ ...MONO(12) }}>{cli.tel}</span>
-                {!enMora
-                  ? <span style={{ fontSize: 12, color: '#b6cdc1', padding: '3px 11px', borderRadius: 20, background: 'rgba(130,179,157,0.13)' }}>Al día</span>
-                  : <span style={{ fontSize: 12, color: '#d98a76', padding: '3px 11px', borderRadius: 20, background: 'rgba(217,138,118,0.13)' }}>En mora</span>
-                }
-              </div>
+              <FieldLabel>Resolución (opcional)</FieldLabel>
+              <input value={resolucion} onChange={e => setResolucion(e.target.value)} placeholder="Cambio por garantía…"
+                style={{ width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14 }} />
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Saldo pendiente</div>
-            <div style={SERIF(38, '#9ec6ec')}>{fARS(saldoDe(cli))}</div>
-            <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 7 }}>Total comprado · {fUSD(cli.compras.reduce((a, b) => a + b.usd, 0))}</div>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={handleSave} style={{ flex: 2, padding: 12, borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Registrar reclamo</button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function ClienteDetail({ cli, onBack, onAddReclamo }) {
+  const [reclamoModal, setReclamoModal] = useState(false);
+
+  const enMora = !!(cli.plan && cli.plan.mora);
+  const cliCompras = cli.compras.map(co => {
+    const mr = mesesRest(co.gVence);
+    const vig = dnum(co.gVence) >= dnum(TODAY);
+    let gl;
+    if (vig) gl = mr >= 1 ? `Garantía · ${mr} ${mr === 1 ? 'mes' : 'meses'}` : 'Garantía · menos de 1 mes';
+    else gl = 'Garantía vencida · ' + gvFmt(co.gVence);
+    return { ...co, garVigente: vig, garLabel: gl };
+  });
+  const plan = cli.plan;
+  let planView = null;
+  if (plan) {
+    planView = {
+      equipo: plan.equipo, prox: plan.prox, mora: plan.mora || '',
+      tieneMora: !!plan.mora,
+      restanteFmt: fARS((plan.total - plan.pagadas) * plan.monto),
+      label: `${plan.pagadas} de ${plan.total} cuotas pagadas`,
+      dots: Array.from({ length: plan.total }, (_, i) => ({ pagada: i < plan.pagadas })),
+    };
+  }
+  const reservasCli = RESERVAS.filter(r => r.cliente === cli.nombre && r.estado === 'activa');
+  const reclamos = cli.reclamos || [];
+
+  const handleSaveReclamo = (data) => {
+    onAddReclamo(cli.id, data);
+    setReclamoModal(false);
+  };
+
+  return (
+    <div>
+      {reclamoModal && (
+        <ReclamoModal compras={cli.compras} onSave={handleSaveReclamo} onClose={() => setReclamoModal(false)} />
+      )}
+
+      <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#828a94', fontSize: 13.5, marginBottom: 18, padding: 0 }}>‹ Volver al directorio</button>
+
+      {/* Header card */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '28px 32px', borderRadius: 20, border: '1px solid rgba(116,168,214,0.2)', background: 'linear-gradient(160deg, rgba(116,168,214,0.07), #181b20 55%)', marginBottom: 16, flexWrap: 'wrap', gap: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
+          <div style={{ width: 66, height: 66, borderRadius: '50%', border: '1px solid rgba(116,168,214,0.4)', background: 'rgba(116,168,214,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={SERIF(30, '#9ec6ec')}>{cli.inicial}</span>
+          </div>
+          <div>
+            <div style={SERIF(33)}>{cli.nombre}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 11, flexWrap: 'wrap' }}>
+              <span style={{ ...MONO(12, '#a6afba') }}>DNI {cli.dni}</span>
+              <span style={{ color: '#3a4047' }}>·</span>
+              <span style={{ fontSize: 13, color: '#a6afba' }}>{cli.loc}</span>
+              <span style={{ color: '#3a4047' }}>·</span>
+              <span style={{ fontSize: 13, color: '#a6afba' }}>Cliente desde {cli.desde}</span>
+              <span style={{ ...MONO(12) }}>{cli.tel}</span>
+              {!enMora
+                ? <span style={{ fontSize: 12, color: '#b6cdc1', padding: '3px 11px', borderRadius: 20, background: 'rgba(130,179,157,0.13)' }}>Al día</span>
+                : <span style={{ fontSize: 12, color: '#d98a76', padding: '3px 11px', borderRadius: 20, background: 'rgba(217,138,118,0.13)' }}>En mora</span>
+              }
+            </div>
           </div>
         </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Saldo pendiente</div>
+          <div style={SERIF(38, '#9ec6ec')}>{fARS(saldoDe(cli))}</div>
+          <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 7 }}>Total comprado · {fUSD(cli.compras.reduce((a, b) => a + b.usd, 0))}</div>
+        </div>
+      </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.35fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.35fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
+        {/* Left: compras + reclamos */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
           {/* Equipos comprados */}
           <div style={{ padding: '26px 28px', borderRadius: 20, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
             <span style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase' }}>Equipos comprados · {cliCompras.length}</span>
@@ -104,68 +207,126 @@ export default function Clientes() {
             </div>
           </div>
 
-          {/* Right col: plan + reservas */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ padding: '26px 28px', borderRadius: 20, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
-              <span style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase' }}>Plan de cuotas</span>
-              {planView
-                ? (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#eef2f7' }}>{planView.equipo}</div>
-                    <div style={{ display: 'flex', gap: 6, margin: '16px 0 11px' }}>
-                      {planView.dots.map((d, i) => (
-                        <span key={i} style={{ flex: 1, height: 8, borderRadius: 4, display: 'inline-block', background: d.pagada ? '#74a8d6' : 'rgba(231,238,246,0.08)' }} />
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 13, color: '#a6afba' }}>{planView.label}</span>
-                      <span style={{ fontSize: 13, color: '#74a8d6' }}>Próxima · {planView.prox}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, marginTop: 16, borderTop: '1px solid rgba(231,238,246,0.07)' }}>
-                      <span style={{ fontSize: 13.5, color: '#828a94' }}>Resta pagar</span>
-                      <span style={SERIF(24)}>{planView.restanteFmt}</span>
-                    </div>
-                    {planView.tieneMora && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 15, padding: '11px 14px', borderRadius: 11, background: 'rgba(217,138,118,0.1)', border: '1px solid rgba(217,138,118,0.25)' }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d98a76', display: 'inline-block' }} />
-                        <span style={{ fontSize: 12.5, color: '#e6ab98' }}>Cuota del {planView.mora} vencida sin gestionar</span>
-                      </div>
-                    )}
-                  </div>
-                )
-                : <div style={{ marginTop: 14, paddingTop: 16, color: '#6a717b', fontSize: 13.5 }}>Sin financiación activa. Compras al contado.</div>
-              }
+          {/* Reclamos */}
+          <div style={{ padding: '26px 28px', borderRadius: 20, border: reclamos.length > 0 ? '1px solid rgba(217,138,118,0.2)' : '1px solid rgba(231,238,246,0.08)', background: reclamos.length > 0 ? 'linear-gradient(160deg, rgba(217,138,118,0.05), #181b20 60%)' : '#181b20' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', color: reclamos.length > 0 ? '#d98a76' : '#828a94' }}>
+                Reclamos {reclamos.length > 0 && `· ${reclamos.length}`}
+              </span>
+              {cli.compras.length > 0 && (
+                <button onClick={() => setReclamoModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(231,238,246,0.12)', background: 'rgba(231,238,246,0.04)', color: '#a6afba', fontSize: 12.5, cursor: 'pointer' }}>
+                  + Registrar reclamo
+                </button>
+              )}
             </div>
 
-            <div style={{ padding: '26px 28px', borderRadius: 20, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
-              <span style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase' }}>Reservas</span>
-              {reservasCli.length > 0
-                ? (
-                  <div style={{ marginTop: 14 }}>
-                    {reservasCli.map((r, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 0', borderTop: '1px solid rgba(231,238,246,0.06)' }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{r.equipo}</div>
-                          <div style={{ fontSize: 12, color: '#828a94', marginTop: 1 }}>Reservado {r.fecha}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: 14.5, fontWeight: 600, color: '#74a8d6', whiteSpace: 'nowrap' }}>{fARS(r.sena)}</div>
-                          <div style={{ fontSize: 11, color: '#828a94' }}>seña</div>
-                        </div>
-                      </div>
-                    ))}
+            {reclamos.length === 0 && (
+              <div style={{ color: '#6a717b', fontSize: 13.5 }}>Sin reclamos registrados.</div>
+            )}
+            {reclamos.map((r, i) => {
+              const estilos = ESTADO_RECLAMO_COLORS[r.estado] || ESTADO_RECLAMO_COLORS['Pendiente'];
+              return (
+                <div key={r.id || i} style={{ padding: '16px 0', borderTop: i === 0 ? 'none' : '1px solid rgba(231,238,246,0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: r.descripcion || r.resolucion ? 10 : 0 }}>
+                    <div>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{r.diagnostico}</div>
+                      <div style={{ fontSize: 12, color: '#828a94', marginTop: 3 }}>{r.equipoLabel} {r.imei ? `· ${r.imei}` : ''}</div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, ...estilos }}>{r.estado}</span>
+                      <span style={{ ...MONO(10.5), color: '#6a717b' }}>{r.fecha}</span>
+                    </div>
                   </div>
-                )
-                : <div style={{ marginTop: 14, paddingTop: 16, color: '#6a717b', fontSize: 13.5 }}>Sin reservas activas.</div>
-              }
-            </div>
+                  {r.descripcion && <div style={{ fontSize: 13, color: '#9aa2ad', lineHeight: 1.5 }}>{r.descripcion}</div>}
+                  {r.resolucion && (
+                    <div style={{ marginTop: 8, padding: '9px 12px', borderRadius: 9, background: 'rgba(130,179,157,0.08)', border: '1px solid rgba(130,179,157,0.18)' }}>
+                      <span style={{ fontSize: 11, color: '#82b39d', fontWeight: 500 }}>Resolución: </span>
+                      <span style={{ fontSize: 13, color: '#b6cdc1' }}>{r.resolucion}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right col */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Plan de cuotas */}
+          <div style={{ padding: '26px 28px', borderRadius: 20, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
+            <span style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase' }}>Plan de cuotas</span>
+            {planView ? (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#eef2f7' }}>{planView.equipo}</div>
+                <div style={{ display: 'flex', gap: 6, margin: '16px 0 11px' }}>
+                  {planView.dots.map((d, i) => (
+                    <span key={i} style={{ flex: 1, height: 8, borderRadius: 4, display: 'inline-block', background: d.pagada ? '#74a8d6' : 'rgba(231,238,246,0.08)' }} />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, color: '#a6afba' }}>{planView.label}</span>
+                  <span style={{ fontSize: 13, color: '#74a8d6' }}>Próxima · {planView.prox}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, marginTop: 16, borderTop: '1px solid rgba(231,238,246,0.07)' }}>
+                  <span style={{ fontSize: 13.5, color: '#828a94' }}>Resta pagar</span>
+                  <span style={SERIF(24)}>{planView.restanteFmt}</span>
+                </div>
+                {planView.tieneMora && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 15, padding: '11px 14px', borderRadius: 11, background: 'rgba(217,138,118,0.1)', border: '1px solid rgba(217,138,118,0.25)' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d98a76', display: 'inline-block' }} />
+                    <span style={{ fontSize: 12.5, color: '#e6ab98' }}>Cuota del {planView.mora} vencida sin gestionar</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, paddingTop: 16, color: '#6a717b', fontSize: 13.5 }}>Sin financiación activa. Compras al contado.</div>
+            )}
+          </div>
+
+          {/* Reservas */}
+          <div style={{ padding: '26px 28px', borderRadius: 20, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
+            <span style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase' }}>Reservas</span>
+            {reservasCli.length > 0 ? (
+              <div style={{ marginTop: 14 }}>
+                {reservasCli.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 0', borderTop: '1px solid rgba(231,238,246,0.06)' }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{r.equipo}</div>
+                      <div style={{ fontSize: 12, color: '#828a94', marginTop: 1 }}>Reservado {r.fecha}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#74a8d6', whiteSpace: 'nowrap' }}>{fARS(r.sena)}</div>
+                      <div style={{ fontSize: 11, color: '#828a94' }}>seña</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginTop: 14, paddingTop: 16, color: '#6a717b', fontSize: 13.5 }}>Sin reservas activas.</div>
+            )}
           </div>
         </div>
       </div>
-    );
+    </div>
+  );
+}
+
+export default function Clientes({ clientes, onAddReclamo }) {
+  const [view, setView] = useState('list');
+  const [clienteId, setClienteId] = useState('c1');
+  const [search, setSearch] = useState('');
+
+  const openCliente = (id) => { setClienteId(id); setView('detail'); };
+  const goBack = () => setView('list');
+
+  const q = search.trim().toLowerCase();
+  const clienteRows = clientes.filter(c => !q || (c.nombre + ' ' + c.dni).toLowerCase().includes(q));
+
+  if (view === 'detail') {
+    const cli = clientes.find(c => c.id === clienteId) || clientes[0];
+    return <ClienteDetail cli={cli} onBack={goBack} onAddReclamo={onAddReclamo} />;
   }
 
-  // List view
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 16 }}>
@@ -194,11 +355,15 @@ export default function Clientes() {
       <div>
         {clienteRows.map(c => {
           const enMora = !!(c.plan && c.plan.mora);
+          const tieneReclamos = (c.reclamos || []).length > 0;
           return (
             <button key={c.id} onClick={() => openCliente(c.id)} style={{ display: 'grid', gridTemplateColumns: '2fr 1.1fr 1.3fr 0.7fr 1fr 0.9fr', gap: 16, alignItems: 'center', padding: '14px 20px', border: 'none', borderBottom: '1px solid rgba(231,238,246,0.05)', borderRadius: 12, background: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(116,168,214,0.13)', color: '#9ec6ec', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{c.inicial}</span>
-                <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{c.nombre}</span>
+                <div>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{c.nombre}</div>
+                  {tieneReclamos && <div style={{ fontSize: 11, color: '#d98a76', marginTop: 1 }}>{c.reclamos.length} reclamo{c.reclamos.length !== 1 ? 's' : ''}</div>}
+                </div>
               </div>
               <span style={{ ...MONO(12.5, '#a6afba') }}>{c.dni}</span>
               <span style={{ fontSize: 13.5, color: '#828a94' }}>{c.loc}</span>

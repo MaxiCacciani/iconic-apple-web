@@ -1,19 +1,19 @@
 import { useState } from 'react';
-import { COBROS, CLIENTES, TODAY, MONTH_NAMES, DAY_NAMES, fARS, dnum, dim, firstW, weekdayOf } from '../data/data.js';
+import { COBROS, TODAY, MONTH_NAMES, DAY_NAMES, fARS, dnum, dim, firstW, weekdayOf } from '../data/data.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
-function buildGarEvents() {
+function buildGarEvents(clientes) {
   const events = [];
-  CLIENTES.forEach(c => c.compras.forEach(co => {
+  clientes.forEach(c => c.compras.forEach(co => {
     events.push({ y: co.gVence.y, m: co.gVence.m, d: co.gVence.d, cliente: c.nombre, equipo: co.modelo + ' · ' + co.cap, vencida: dnum(co.gVence) < dnum(TODAY) });
   }));
   return events;
 }
-const GAR_EVENTS = buildGarEvents();
 
-export default function Cobros() {
+export default function Cobros({ clientes }) {
+  const GAR_EVENTS = buildGarEvents(clientes);
   const [calY, setCalY] = useState(TODAY.y);
   const [calM, setCalM] = useState(TODAY.m);
   const [selY, setSelY] = useState(TODAY.y);

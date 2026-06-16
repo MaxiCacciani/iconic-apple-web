@@ -1,4 +1,4 @@
-import { EQUIPOS, COBROS, RESERVAS, ACTIVIDAD, SPARK_RAW, TODAY, MONTH_ABBR, DAY_NAMES, fARS, fUSD, dnum } from '../data/data.js';
+import { COBROS, RESERVAS, ACTIVIDAD, SPARK_RAW, TODAY, MONTH_ABBR, DAY_NAMES, fARS, fUSD, dnum } from '../data/data.js';
 
 const C = {
   label: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 2, color: '#828a94', textTransform: 'uppercase' },
@@ -7,9 +7,9 @@ const C = {
   mono: (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color }),
 };
 
-export default function Resumen({ onGoCobros }) {
+export default function Resumen({ equipos, onGoCobros }) {
   const tc = 1400;
-  const disp = EQUIPOS.filter(e => e.estado === 'disponible');
+  const disp = equipos.filter(e => e.estado === 'disponible');
   const stockNuevos = disp.filter(e => e.cond === 'Nuevo').length;
   const stockUsados = disp.length - stockNuevos;
   const ventasUSD = ACTIVIDAD.reduce((a, b) => a + b.usd, 0);
@@ -73,7 +73,7 @@ export default function Resumen({ onGoCobros }) {
             <span style={C.label}>Stock disponible</span>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, marginTop: 14 }}>
               <span style={{ fontSize: 46, fontWeight: 600, letterSpacing: -1 }}>{disp.length}</span>
-              <span style={{ fontSize: 14, color: '#828a94' }}>de {EQUIPOS.length} equipos</span>
+              <span style={{ fontSize: 14, color: '#828a94' }}>de {equipos.length} equipos</span>
             </div>
             <div style={{ fontSize: 13, color: '#a6afba', marginTop: 8 }}>{stockNuevos} nuevos · {stockUsados} usados</div>
           </div>
@@ -83,6 +83,7 @@ export default function Resumen({ onGoCobros }) {
               <span style={{ fontSize: 46, fontWeight: 600, letterSpacing: -1 }}>{reservasActivas.length}</span>
               <span style={{ fontSize: 14, color: '#828a94' }}>{fARS(reservasSenasTot)} en señas</span>
             </div>
+
             <div style={{ fontSize: 13, color: '#a6afba', marginTop: 8 }}>Seña a cuenta · sin vencimiento</div>
           </div>
         </div>
