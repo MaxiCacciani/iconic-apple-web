@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CATEGORIAS, CATEGORIAS_PHONE, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor } from '../data/data.js';
+import { CATEGORIAS, CATEGORIAS_PHONE, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
@@ -8,7 +8,8 @@ const TC = 1400;
 
 const EMPTY_FORM = {
   categoria: 'iPhone', modelo: '', cap: '', color: '',
-  cond: 'Nuevo', bat: '', imei: '', defectos: '', usd: '', estado: 'disponible', cantidad: 1,
+  cond: 'Nuevo', bat: '', imei: '', defectos: '', usd: '', costo: '', proveedor: '',
+  estado: 'disponible', cantidad: 1,
 };
 
 function FieldLabel({ children }) {
@@ -31,65 +32,114 @@ function FieldInput({ value, onChange, placeholder, type = 'text', style = {} })
   );
 }
 
+const selectStyle = {
+  width: '100%', padding: '11px 14px', borderRadius: 10,
+  background: '#1e2228', border: '1px solid rgba(231,238,246,0.09)',
+  color: '#eef2f7', fontSize: 14, appearance: 'none',
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236a717b' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+};
+
 function FieldSelect({ value, onChange, options }) {
   return (
-    <select
-      value={value}
-      onChange={onChange}
-      style={{
-        width: '100%', padding: '11px 14px', borderRadius: 10,
-        background: '#1e2228', border: '1px solid rgba(231,238,246,0.09)',
-        color: '#eef2f7', fontSize: 14, appearance: 'none',
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236a717b' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-        backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
-      }}
-    >
+    <select value={value} onChange={onChange} style={selectStyle}>
       {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
     </select>
   );
 }
 
+// Combo = select de opciones predefinidas + campo libre si elige "Otro"
+function FieldCombo({ value, onChange, options, placeholder = '' }) {
+  const isCustom = value !== '' && !options.includes(value);
+  const selectVal = isCustom ? '__otro__' : value;
+  return (
+    <>
+      <select
+        value={selectVal}
+        onChange={e => { if (e.target.value === '__otro__') onChange(''); else onChange(e.target.value); }}
+        style={{ ...selectStyle, color: selectVal === '' ? '#6a717b' : '#eef2f7' }}
+      >
+        <option value="">— Seleccionar —</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        <option value="__otro__">Otro…</option>
+      </select>
+      {(isCustom || selectVal === '__otro__') && (
+        <div style={{ marginTop: 8 }}>
+          <FieldInput value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+        </div>
+      )}
+    </>
+  );
+}
+
 function StockModal({ initial, onSave, onClose }) {
   const isEdit = !!initial;
-  const [form, setForm] = useState(initial ? { ...initial, bat: initial.bat ?? '', usd: initial.usd ?? '', defectos: initial.defectos ?? '' } : { ...EMPTY_FORM });
+  const [form, setForm] = useState(initial
+    ? { costo: '', proveedor: '', ...initial, bat: initial.bat ?? '', usd: initial.usd ?? '', defectos: initial.defectos ?? '' }
+    : { ...EMPTY_FORM }
+  );
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const phone = esPhone(form.categoria);
+
+  const modelosList  = getModelos(form.categoria);
+  const capsList     = getCaps(form.categoria);
+  const coloresList  = getColores(form.categoria);
+
+  const handleCategoriaChange = (cat) => {
+    setForm(f => ({ ...f, categoria: cat, modelo: '', cap: '', color: '' }));
+  };
 
   const handleSave = () => {
     if (!form.modelo.trim() || !form.usd) return;
     onSave({
       ...form,
       usd: parseFloat(form.usd) || 0,
+      costo: form.costo !== '' ? (parseFloat(form.costo) || null) : null,
       bat: phone && form.cond === 'Usado' ? (parseInt(form.bat) || null) : null,
       imei: phone ? form.imei : '',
       cantidad: phone ? 1 : (parseInt(form.cantidad) || 1),
+      proveedor: form.proveedor || '',
     });
   };
 
   const row2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 };
   const fieldWrap = { marginBottom: 16 };
 
+  const costoNum = parseFloat(form.costo) || 0;
+  const usdNum   = parseFloat(form.usd)   || 0;
+  const ganancia = usdNum - costoNum;
+  const margen   = costoNum > 0 && usdNum > 0 ? Math.round((ganancia / costoNum) * 100) : null;
+
   return (
-    <Modal title={isEdit ? 'Editar producto' : 'Agregar producto'} onClose={onClose} width={580}>
+    <Modal title={isEdit ? 'Editar producto' : 'Agregar producto'} onClose={onClose} width={600}>
       <div style={fieldWrap}>
         <FieldLabel>Categoría</FieldLabel>
-        <FieldSelect value={form.categoria} onChange={e => set('categoria', e.target.value)}
+        <FieldSelect value={form.categoria} onChange={e => handleCategoriaChange(e.target.value)}
           options={CATEGORIAS.map(c => [c, c])} />
       </div>
 
       <div style={fieldWrap}>
-        <FieldLabel>Modelo / Descripción</FieldLabel>
-        <FieldInput value={form.modelo} onChange={e => set('modelo', e.target.value)} placeholder="ej. iPhone 16 Pro Max" />
+        <FieldLabel>Modelo</FieldLabel>
+        {modelosList
+          ? <FieldCombo value={form.modelo} onChange={v => set('modelo', v)} options={modelosList} placeholder="ej. iPhone 16 Pro Max" />
+          : <FieldInput value={form.modelo} onChange={e => set('modelo', e.target.value)} placeholder="Descripción del producto" />
+        }
       </div>
 
       <div style={{ ...row2, ...fieldWrap }}>
         <div>
           <FieldLabel>{phone ? 'Almacenamiento' : 'Especificación'}</FieldLabel>
-          <FieldInput value={form.cap} onChange={e => set('cap', e.target.value)} placeholder={phone ? '256 GB' : '20W, 1m…'} />
+          {capsList
+            ? <FieldCombo value={form.cap} onChange={v => set('cap', v)} options={capsList} placeholder="256 GB" />
+            : <FieldInput value={form.cap} onChange={e => set('cap', e.target.value)} placeholder="20W, 1m…" />
+          }
         </div>
         <div>
           <FieldLabel>Color</FieldLabel>
-          <FieldInput value={form.color} onChange={e => set('color', e.target.value)} placeholder="Titanio Natural…" />
+          {coloresList
+            ? <FieldCombo value={form.color} onChange={v => set('color', v)} options={coloresList} placeholder="Titanio Natural…" />
+            : <FieldInput value={form.color} onChange={e => set('color', e.target.value)} placeholder="Color…" />
+          }
         </div>
       </div>
 
@@ -134,10 +184,32 @@ function StockModal({ initial, onSave, onClose }) {
         </div>
       )}
 
+      {/* Precio, Costo y Margen */}
       <div style={{ ...row2, ...fieldWrap }}>
         <div>
-          <FieldLabel>Precio (USD)</FieldLabel>
+          <FieldLabel>Precio de venta (USD)</FieldLabel>
           <FieldInput type="number" value={form.usd} onChange={e => set('usd', e.target.value)} placeholder="950" />
+        </div>
+        <div>
+          <FieldLabel>Costo (USD)</FieldLabel>
+          <FieldInput type="number" value={form.costo} onChange={e => set('costo', e.target.value)} placeholder="750" />
+        </div>
+      </div>
+
+      {costoNum > 0 && usdNum > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: -8, marginBottom: 16, padding: '10px 14px', borderRadius: 10, background: ganancia >= 0 ? 'rgba(130,179,157,0.07)' : 'rgba(217,138,118,0.07)', border: `1px solid ${ganancia >= 0 ? 'rgba(130,179,157,0.2)' : 'rgba(217,138,118,0.2)'}` }}>
+          <span style={{ fontSize: 12.5, color: '#828a94' }}>Ganancia</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: ganancia >= 0 ? '#82b39d' : '#d98a76' }}>
+            {ganancia >= 0 ? '+' : ''}US$ {Math.round(ganancia).toLocaleString('es-AR')}
+          </span>
+          {margen !== null && <span style={{ fontSize: 12, color: ganancia >= 0 ? '#82b39d' : '#d98a76' }}>({margen}%)</span>}
+        </div>
+      )}
+
+      <div style={{ ...row2, ...fieldWrap }}>
+        <div>
+          <FieldLabel>Proveedor</FieldLabel>
+          <FieldCombo value={form.proveedor} onChange={v => set('proveedor', v)} options={PROVEEDORES} placeholder="Nombre del proveedor…" />
         </div>
         <div>
           <FieldLabel>Estado</FieldLabel>
@@ -330,6 +402,16 @@ export default function Stock({ equipos, onAdd, onUpdate }) {
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(e.usd)}</div>
                 {isPhone && <div style={{ fontSize: 11, color: '#828a94', marginTop: 1, whiteSpace: 'nowrap' }}>{fARS(e.usd * TC)}</div>}
+                {e.costo > 0 && (() => {
+                  const g = e.usd - e.costo;
+                  const pct = Math.round((g / e.costo) * 100);
+                  return (
+                    <>
+                      <div style={{ fontSize: 10.5, color: '#6a717b', marginTop: 3, whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace" }}>Cto. {fUSD(e.costo)}</div>
+                      <div style={{ fontSize: 10.5, color: g >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace" }}>{g >= 0 ? '+' : ''}{fUSD(g)} · {pct}%</div>
+                    </>
+                  );
+                })()}
               </div>
               {/* Estado */}
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

@@ -68,6 +68,10 @@ export default function App() {
     showToast('Reclamo actualizado');
   };
 
+  const updateVenta = (id, updates) => {
+    setVentas(prev => prev.map(v => v.id === id ? { ...v, ...updates } : v));
+  };
+
   const registrarVenta = (ventaData) => {
     const newVenta = {
       id: 'new_' + Date.now(),
@@ -110,7 +114,7 @@ export default function App() {
         {screen === 'cobros'   && <Cobros clientes={clientes} />}
         {screen === 'reservas' && <Reservas reservas={reservas} onConvert={convertReserva} />}
         {screen === 'clientes' && <Clientes clientes={clientes} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} />}
-        {screen === 'ventas'   && <Ventas ventas={ventas} />}
+        {screen === 'ventas'   && <Ventas ventas={ventas} onUpdateVenta={updateVenta} />}
       </main>
 
       <Toast msg={toast} />

@@ -12,6 +12,74 @@ export const CATEGORIAS = [
 ];
 export const esPhone = (cat) => CATEGORIAS_PHONE.includes(cat);
 
+export const MODELOS_IPHONE = [
+  'iPhone 16 Pro Max','iPhone 16 Pro','iPhone 16 Plus','iPhone 16',
+  'iPhone 15 Pro Max','iPhone 15 Pro','iPhone 15 Plus','iPhone 15',
+  'iPhone 14 Pro Max','iPhone 14 Pro','iPhone 14 Plus','iPhone 14',
+  'iPhone 13 Pro Max','iPhone 13 Pro','iPhone 13 mini','iPhone 13',
+  'iPhone 12 Pro Max','iPhone 12 Pro','iPhone 12 mini','iPhone 12',
+  'iPhone 11 Pro Max','iPhone 11 Pro','iPhone 11',
+  'iPhone SE (3ª gen)','iPhone SE (2ª gen)',
+];
+export const MODELOS_IPAD = [
+  'iPad Pro 13" M4','iPad Pro 11" M4',
+  'iPad Air 13" M2','iPad Air 11" M2',
+  'iPad mini (7ª gen)','iPad (10ª gen)','iPad (9ª gen)',
+];
+export const MODELOS_MAC = [
+  'MacBook Air 13" M3','MacBook Air 15" M3',
+  'MacBook Pro 14" M4','MacBook Pro 14" M4 Pro','MacBook Pro 16" M4',
+  'MacBook Air 13" M2','MacBook Pro 14" M3','MacBook Pro 16" M3',
+  'Mac mini M4','Mac mini M2','iMac 24" M3',
+];
+export const MODELOS_WATCH = [
+  'Apple Watch Series 10 46mm','Apple Watch Series 10 42mm',
+  'Apple Watch Ultra 2','Apple Watch SE (2ª gen) 44mm','Apple Watch SE (2ª gen) 40mm',
+];
+export const MODELOS_AIRPODS = [
+  'AirPods Pro (2ª gen)','AirPods 4 (ANC)','AirPods 4','AirPods (3ª gen)','AirPods Max (USB-C)',
+];
+
+export const CAPS_PHONE = ['64 GB','128 GB','256 GB','512 GB','1 TB'];
+export const CAPS_IPAD  = ['64 GB','128 GB','256 GB','512 GB','1 TB','2 TB'];
+export const CAPS_MAC   = ['256 GB','512 GB','1 TB','2 TB'];
+
+export const COLORES_IPHONE = [
+  'Titanio Natural','Titanio Negro','Titanio Blanco','Titanio Azul','Titanio Desierto',
+  'Negro','Blanco','Rosa','Azul','Verde','Amarillo','Ultramarino',
+  'Medianoche','Blanco Estelar','Morado Oscuro','Verde Azulado','Plata',
+  'Rojo (Product Red)','Tostado',
+];
+export const COLORES_IPAD = ['Plata','Gris Espacial','Azul','Morado','Rosa','Amarillo','Verde'];
+export const COLORES_MAC  = ['Plata','Gris Espacial','Dorado','Azul Medianoche','Luz de Estrella','Verde','Morado','Naranja'];
+export const COLORES_WATCH = ['Plata','Medianoche','Luz de Estrella','Rojo (Product Red)','Titanio Natural','Titanio Negro'];
+
+export const PROVEEDORES = [
+  'Plan canje','Importadora BsAs','Distribuidor local','Importación personal','Mayorista Córdoba',
+];
+
+export function getModelos(cat) {
+  if (cat === 'iPhone') return MODELOS_IPHONE;
+  if (cat === 'iPad')   return MODELOS_IPAD;
+  if (cat === 'Mac')    return MODELOS_MAC;
+  if (cat === 'Apple Watch') return MODELOS_WATCH;
+  if (cat === 'AirPods') return MODELOS_AIRPODS;
+  return null;
+}
+export function getCaps(cat) {
+  if (cat === 'iPhone') return CAPS_PHONE;
+  if (cat === 'iPad')   return CAPS_IPAD;
+  if (cat === 'Mac')    return CAPS_MAC;
+  return null;
+}
+export function getColores(cat) {
+  if (cat === 'iPhone') return COLORES_IPHONE;
+  if (cat === 'iPad')   return COLORES_IPAD;
+  if (cat === 'Mac')    return COLORES_MAC;
+  if (cat === 'Apple Watch') return COLORES_WATCH;
+  return null;
+}
+
 export const DEFECTOS_COMUNES = [
   'Pantalla con micro-rayones',
   'Pantalla rota (uso normal afectado)',
