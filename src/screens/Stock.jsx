@@ -445,7 +445,7 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
               {/* Precio */}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(e.usd)}</div>
-                {isPhone && <div style={{ fontSize: 11, color: '#828a94', marginTop: 1, whiteSpace: 'nowrap' }}>{fARS(e.usd * TC)}</div>}
+                {isPhone && <div style={{ fontSize: 11, color: '#828a94', marginTop: 1, whiteSpace: 'nowrap' }}>{fARS(e.usd * tc)}</div>}
                 {e.costo > 0 && (() => {
                   const g = e.usd - e.costo;
                   const pct = Math.round((g / e.costo) * 100);
