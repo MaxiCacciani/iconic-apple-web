@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CATEGORIAS, CATEGORIAS_PHONE, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
+import { validateIMEI, isIMEIDuplicate, validatePrecio, validateCosto, validateBat, validateCantidad } from '../lib/validation.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -72,7 +73,7 @@ function FieldCombo({ value, onChange, options, placeholder = '' }) {
   );
 }
 
-function StockModal({ initial, onSave, onClose }) {
+function StockModal({ initial, equipos, onSave, onClose }) {
   const isEdit = !!initial;
   const [form, setForm] = useState(initial
     ? { costo: '', proveedor: '', ...initial, bat: initial.bat ?? '', usd: initial.usd ?? '', defectos: initial.defectos ?? '' }
@@ -80,6 +81,31 @@ function StockModal({ initial, onSave, onClose }) {
   );
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const phone = esPhone(form.categoria);
+
+  const getErrors = () => {
+    const errs = [];
+    if (!form.modelo.trim()) errs.push('El modelo es obligatorio.');
+    const ep = validatePrecio(form.usd);
+    if (ep) errs.push(ep);
+    const ec = validateCosto(form.costo, form.usd);
+    if (ec) errs.push(ec);
+    if (phone) {
+      const ei = validateIMEI(form.imei, true);
+      if (ei) errs.push(ei);
+      else if (isIMEIDuplicate(form.imei, equipos, isEdit ? initial.id : null))
+        errs.push('Ya existe un equipo en el stock con ese IMEI.');
+      if (form.cond === 'Usado') {
+        const eb = validateBat(form.bat);
+        if (eb) errs.push(eb);
+      }
+    } else {
+      const eq = validateCantidad(form.cantidad);
+      if (eq) errs.push(eq);
+    }
+    return errs;
+  };
+  const errors = getErrors();
+  const canSave = errors.length === 0;
 
   const modelosList  = getModelos(form.categoria);
   const capsList     = getCaps(form.categoria);
@@ -90,13 +116,13 @@ function StockModal({ initial, onSave, onClose }) {
   };
 
   const handleSave = () => {
-    if (!form.modelo.trim() || !form.usd) return;
+    if (!canSave) return;
     onSave({
       ...form,
       usd: parseFloat(form.usd) || 0,
       costo: form.costo !== '' ? (parseFloat(form.costo) || null) : null,
       bat: phone && form.cond === 'Usado' ? (parseInt(form.bat) || null) : null,
-      imei: phone ? form.imei : '',
+      imei: phone ? (form.imei || '').replace(/[\s\-]/g, '') : '',
       cantidad: phone ? 1 : (parseInt(form.cantidad) || 1),
       proveedor: form.proveedor || '',
     });
@@ -218,9 +244,16 @@ function StockModal({ initial, onSave, onClose }) {
         </div>
       </div>
 
+      {errors.length > 0 && (
+        <div style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 10, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.25)' }}>
+          {errors.map((e, i) => (
+            <div key={i} style={{ fontSize: 12.5, color: '#e6ab98', lineHeight: 1.6 }}>· {e}</div>
+          ))}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
         <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
-        <button onClick={handleSave} style={{ flex: 2, padding: '12px', borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={handleSave} disabled={!canSave} style={{ flex: 2, padding: '12px', borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: canSave ? 'linear-gradient(160deg, #eef2f6, #b7c3ce)' : 'rgba(231,238,246,0.05)', color: canSave ? '#14171c' : '#6a717b', fontSize: 14, fontWeight: 600, cursor: canSave ? 'pointer' : 'default' }}>
           {isEdit ? 'Guardar cambios' : 'Agregar al stock'}
         </button>
       </div>
@@ -277,6 +310,7 @@ export default function Stock({ equipos, onAdd, onUpdate }) {
       {modal && (
         <StockModal
           initial={modal.mode === 'edit' ? modal.item : null}
+          equipos={equipos}
           onSave={handleSave}
           onClose={() => setModal(null)}
         />

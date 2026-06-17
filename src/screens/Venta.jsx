@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { esPhone, fARS, fUSD, batColor, TC, CATEGORIAS, getModelos, getCaps, getColores } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
+import { validateDNI, validateTel, validateSenia, validateAnticipo, validateCanjeValor, validateCuotas, validateIMEI, validateBat } from '../lib/validation.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -88,19 +89,31 @@ function NuevoClienteModal({ nombre: nombreInit, onSave, onClose }) {
   const [tel, setTel] = useState('');
   const [loc, setLoc] = useState('Villa Carlos Paz');
 
-  const canSave = nombre.trim().length > 1;
-  const field = { width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14 };
+  const errDni = validateDNI(dni);
+  const errTel = validateTel(tel);
+  const canSave = nombre.trim().length > 1 && !errDni && !errTel;
+
+  const field = (hasErr) => ({ width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: `1px solid ${hasErr ? 'rgba(217,138,118,0.5)' : 'rgba(231,238,246,0.09)'}`, color: '#eef2f7', fontSize: 14 });
   const fw = { marginBottom: 14 };
   const MONO_L = { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, color: '#6a717b', display: 'block' };
+  const errStyle = { fontSize: 11.5, color: '#e6ab98', marginTop: 5 };
 
   return (
     <Modal title="Registrar nuevo cliente" onClose={onClose} width={460}>
-      <div style={fw}><span style={MONO_L}>Nombre completo *</span><input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre Apellido" style={field} /></div>
+      <div style={fw}><span style={MONO_L}>Nombre completo *</span><input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre Apellido" style={field(false)} /></div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, ...fw }}>
-        <div><span style={MONO_L}>DNI</span><input value={dni} onChange={e => setDni(e.target.value)} placeholder="34.521.890" style={field} /></div>
-        <div><span style={MONO_L}>Teléfono</span><input value={tel} onChange={e => setTel(e.target.value)} placeholder="+54 9 3541 …" style={field} /></div>
+        <div>
+          <span style={MONO_L}>DNI</span>
+          <input value={dni} onChange={e => setDni(e.target.value)} placeholder="34521890" style={field(!!errDni)} />
+          {errDni && <div style={errStyle}>{errDni}</div>}
+        </div>
+        <div>
+          <span style={MONO_L}>Teléfono</span>
+          <input value={tel} onChange={e => setTel(e.target.value)} placeholder="+54 9 3541 …" style={field(!!errTel)} />
+          {errTel && <div style={errStyle}>{errTel}</div>}
+        </div>
       </div>
-      <div style={fw}><span style={MONO_L}>Localidad</span><input value={loc} onChange={e => setLoc(e.target.value)} placeholder="Villa Carlos Paz" style={field} /></div>
+      <div style={fw}><span style={MONO_L}>Localidad</span><input value={loc} onChange={e => setLoc(e.target.value)} placeholder="Villa Carlos Paz" style={field(false)} /></div>
       <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
         <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
         <button onClick={() => canSave && onSave({ nombre: nombre.trim(), dni, tel, loc, desde: '2026' })} style={{ flex: 2, padding: 12, borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: canSave ? 'linear-gradient(160deg, #eef2f6, #b7c3ce)' : 'rgba(231,238,246,0.05)', color: canSave ? '#14171c' : '#6a717b', fontSize: 14, fontWeight: 600, cursor: canSave ? 'pointer' : 'default' }}>
@@ -180,9 +193,35 @@ export default function Venta({ equipos, clientes, onConfirm, onConfirmApartado,
   const canjeIsPhone = esPhone(canjeCategoria);
   const canjeEquipoLabel = [canjeModelo, canjeCap, canjeColor].filter(Boolean).join(' · ');
 
+  // Validaciones de pago
+  const ventaErrors = (() => {
+    const e = [];
+    if (esCuotas) {
+      const ec = validateCuotas(cuotas);
+      if (ec) e.push(ec);
+      const ea = validateAnticipo(anticipo, vPrecioARS);
+      if (ea) e.push(ea);
+    }
+    if (!esCuotas && tieneApartado) {
+      const es = validateSenia(seniaContado, vPrecioARS);
+      if (es) e.push(es);
+    }
+    if (canje) {
+      const ev = validateCanjeValor(canjeValor, vPrecioARS);
+      if (ev) e.push(ev);
+      if (canjeIsPhone && canjeModelo) {
+        const ei = validateIMEI(canjeImei, false);
+        if (ei) e.push(`IMEI canje: ${ei}`);
+        const eb = validateBat(canjeBat);
+        if (eb) e.push(`Batería canje: ${eb}`);
+      }
+    }
+    return e;
+  })();
+
   const cq = clienteSearch.trim().toLowerCase();
   const clienteMatches = clientes.filter(c => !cq || (c.nombre + ' ' + c.dni).toLowerCase().includes(cq)).slice(0, 5);
-  const canConfirm = !!selEq && !!cliente;
+  const canConfirm = !!selEq && !!cliente && ventaErrors.length === 0;
 
   const handlePickCuotas = (n) => { setCuotas(n); setCuotasCustom(false); };
   const handleCuotasInput = (v) => { const n = parseInt(v) || 0; setCuotas(n); };
@@ -620,11 +659,20 @@ export default function Venta({ equipos, clientes, onConfirm, onConfirmApartado,
           )}
 
           <div style={{ marginTop: 22 }}>
+            {selEq && cliente && ventaErrors.length > 0 && (
+              <div style={{ marginBottom: 12, padding: '10px 13px', borderRadius: 10, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.25)' }}>
+                {ventaErrors.map((e, i) => (
+                  <div key={i} style={{ fontSize: 12, color: '#e6ab98', lineHeight: 1.7 }}>· {e}</div>
+                ))}
+              </div>
+            )}
             {canConfirm
               ? <button onClick={() => tieneApartado ? onConfirmApartado(buildReservaData()) : onConfirm(buildVentaData())} style={{ width: '100%', padding: 15, borderRadius: 13, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(180,200,220,0.7)' }}>
                 {tieneApartado ? 'Registrar reserva' : 'Confirmar venta'}
               </button>
-              : <div style={{ width: '100%', padding: 15, borderRadius: 13, background: 'rgba(231,238,246,0.04)', color: '#6a717b', fontSize: 15, fontWeight: 600, textAlign: 'center' }}>Elegí equipo y cliente</div>
+              : <div style={{ width: '100%', padding: 15, borderRadius: 13, background: 'rgba(231,238,246,0.04)', color: '#6a717b', fontSize: 15, fontWeight: 600, textAlign: 'center' }}>
+                  {!selEq ? 'Elegí un equipo' : !cliente ? 'Elegí un cliente' : 'Corregí los errores'}
+                </div>
             }
           </div>
         </div>
