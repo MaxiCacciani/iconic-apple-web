@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CATEGORIAS, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES, TC } from '../data/data.js';
+import { CATEGORIAS, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 import { validateIMEI, isIMEIDuplicate, validatePrecio, validateCosto, validateBat, validateCantidad } from '../lib/validation.js';
 
@@ -269,7 +269,7 @@ function StockModal({ initial, equipos, onSave, onClose }) {
   );
 }
 
-export default function Stock({ equipos, onAdd, onUpdate, onDelete }) {
+export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('todas');
   const [cond, setCond] = useState('todas');
