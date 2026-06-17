@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { fARS, fUSD } from '../data/data.js';
+import { fARS, fUSD, TC } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
-const TC = 1400;
 
 function ConvertirModal({ reserva, equipos, onConfirm, onClose }) {
   const saldoPrecio = reserva.usd * TC;
@@ -149,11 +148,12 @@ function ConvertirModal({ reserva, equipos, onConfirm, onClose }) {
   );
 }
 
-export default function Reservas({ reservas, equipos, onConvert, onCancelReserva }) {
+export default function Reservas({ reservas, equipos, onConvert, onCancelReserva, onDeleteReserva }) {
   const [q, setQ] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('activa');
   const [convertiendo, setConvertiendo] = useState(null);
   const [cancelandoId, setCancelandoId] = useState(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const qLow = q.trim().toLowerCase();
   const filtered = reservas.filter(r => {
@@ -271,6 +271,24 @@ export default function Reservas({ reservas, equipos, onConvert, onCancelReserva
                 )}
                 {!esActiva && !esCancelada && <span style={{ fontSize: 13, fontWeight: 500, color: '#82b39d', whiteSpace: 'nowrap' }}>✓ Entregado al cliente</span>}
                 {esCancelada && <span style={{ fontSize: 13, color: '#6a717b', whiteSpace: 'nowrap' }}>Reserva no concretada</span>}
+                {/* Eliminar para cualquier estado */}
+                {pendingDeleteId === r.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 7 }}>
+                    <span style={{ fontSize: 12, color: '#d98a76' }}>¿Eliminar registro de esta reserva?</span>
+                    <div style={{ display: 'flex', gap: 7 }}>
+                      <button onClick={() => setPendingDeleteId(null)} style={{ fontSize: 12, color: '#a6afba', background: 'none', border: '1px solid rgba(231,238,246,0.15)', padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}>No</button>
+                      <button onClick={() => { onDeleteReserva(r.id, esActiva ? r.equipoId : null); setPendingDeleteId(null); }}
+                        style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: '#c0655a', border: 'none', padding: '6px 14px', borderRadius: 8, cursor: 'pointer' }}>
+                        Sí, eliminar
+                      </button>
+                    </div>
+                  </div>
+                ) : !confirmando && (
+                  <button onClick={() => setPendingDeleteId(r.id)}
+                    style={{ fontSize: 11.5, color: '#6a717b', background: 'none', border: '1px solid rgba(231,238,246,0.1)', padding: '5px 10px', borderRadius: 7, cursor: 'pointer' }}>
+                    Eliminar registro
+                  </button>
+                )}
               </div>
             </div>
           );

@@ -69,6 +69,13 @@ export function validateDNI(dni) {
   return null;
 }
 
+export function isDNIDuplicate(dni, clientes, excludeId = null) {
+  if (!dni || !String(dni).trim()) return false;
+  const v = String(dni).replace(/[\s\.]/g, '');
+  if (!v) return false;
+  return clientes.some(c => c.id !== excludeId && (c.dni || '').replace(/[\s\.]/g, '') === v);
+}
+
 export function validateTel(tel) {
   if (!tel || !String(tel).trim()) return null; // opcional
   const v = String(tel).replace(/[\s\-\(\)\+]/g, '');

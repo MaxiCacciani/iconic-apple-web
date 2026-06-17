@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { CATEGORIAS, CATEGORIAS_PHONE, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
+import { useState, useEffect } from 'react';
+import { CATEGORIAS, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES, TC } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 import { validateIMEI, isIMEIDuplicate, validatePrecio, validateCosto, validateBat, validateCantidad } from '../lib/validation.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
-const TC = 1400;
 
 const EMPTY_FORM = {
   categoria: 'iPhone', modelo: '', cap: '', color: '',
@@ -51,20 +50,29 @@ function FieldSelect({ value, onChange, options }) {
 
 // Combo = select de opciones predefinidas + campo libre si elige "Otro"
 function FieldCombo({ value, onChange, options, placeholder = '' }) {
+  const [otroMode, setOtroMode] = useState(false);
+  // Cuando cambian las opciones (ej: cambio de categoría), resetear modo "otro"
+  useEffect(() => { setOtroMode(false); }, [options]);
+
   const isCustom = value !== '' && !options.includes(value);
-  const selectVal = isCustom ? '__otro__' : value;
+  const showInput = otroMode || isCustom;
+  const selectVal = showInput ? '__otro__' : value;
+
   return (
     <>
       <select
         value={selectVal}
-        onChange={e => { if (e.target.value === '__otro__') onChange(''); else onChange(e.target.value); }}
+        onChange={e => {
+          if (e.target.value === '__otro__') { setOtroMode(true); onChange(''); }
+          else { setOtroMode(false); onChange(e.target.value); }
+        }}
         style={{ ...selectStyle, color: selectVal === '' ? '#6a717b' : '#eef2f7' }}
       >
         <option value="">— Seleccionar —</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
         <option value="__otro__">Otro…</option>
       </select>
-      {(isCustom || selectVal === '__otro__') && (
+      {showInput && (
         <div style={{ marginTop: 8 }}>
           <FieldInput value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
         </div>
@@ -261,12 +269,13 @@ function StockModal({ initial, equipos, onSave, onClose }) {
   );
 }
 
-export default function Stock({ equipos, onAdd, onUpdate }) {
+export default function Stock({ equipos, onAdd, onUpdate, onDelete }) {
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('todas');
   const [cond, setCond] = useState('todas');
   const [estado, setEstado] = useState('todos');
   const [modal, setModal] = useState(null); // null | { mode:'add'|'edit', item?:{} }
+  const [pendingDelete, setPendingDelete] = useState(null); // id del equipo a confirmar
 
   const q = search.trim().toLowerCase();
 
@@ -373,7 +382,7 @@ export default function Stock({ equipos, onAdd, onUpdate }) {
       </div>
 
       {/* Table header */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 1.3fr 1.1fr 0.9fr 0.85fr 36px', gap: 12, padding: '0 14px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 1.3fr 1.1fr 0.9fr 0.85fr 72px', gap: 12, padding: '0 14px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
         {[['Producto','left'],['Categoría','left'],['Condición / Estado físico','left'],['IMEI / Stock','left'],['Precio','right'],['Estado','right'],['','right']].map(([h, align]) => (
           <span key={h} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1.5, textTransform: 'uppercase', textAlign: align }}>{h}</span>
         ))}
@@ -388,8 +397,9 @@ export default function Stock({ equipos, onAdd, onUpdate }) {
           const isPhone = esPhone(e.categoria);
           const batC = e.bat ? batColor(e.bat) : null;
           const tieneDefectos = e.defectos && e.defectos.trim().length > 0;
+          const isPending = pendingDelete === e.id;
           return (
-            <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 1.3fr 1.1fr 0.9fr 0.85fr 36px', gap: 12, alignItems: 'center', padding: '13px 14px', borderBottom: `1px solid ${tieneDefectos ? 'rgba(217,138,118,0.12)' : 'rgba(231,238,246,0.05)'}`, borderRadius: 10, background: tieneDefectos ? 'rgba(217,138,118,0.02)' : 'none' }}>
+            <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 1.3fr 1.1fr 0.9fr 0.85fr 72px', gap: 12, alignItems: 'center', padding: '13px 14px', borderBottom: `1px solid ${tieneDefectos ? 'rgba(217,138,118,0.12)' : 'rgba(231,238,246,0.05)'}`, borderRadius: 10, background: tieneDefectos ? 'rgba(217,138,118,0.02)' : 'none' }}>
               {/* Producto */}
               <div>
                 <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{e.modelo}</div>
@@ -453,13 +463,23 @@ export default function Stock({ equipos, onAdd, onUpdate }) {
                 {e.estado === 'reservado'  && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#74a8d6' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#74a8d6', display: 'inline-block' }} />Reservado</span>}
                 {e.estado === 'vendido'    && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6a717b' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#6a717b', display: 'inline-block' }} />Vendido</span>}
               </div>
-              {/* Editar */}
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <button
-                  onClick={() => setModal({ mode: 'edit', item: e })}
-                  title="Editar"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6a717b', fontSize: 15, padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >✏</button>
+              {/* Acciones: Editar + Eliminar */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
+                {isPending ? (
+                  <>
+                    <button onClick={() => { onDelete(e.id); setPendingDelete(null); }} title="Confirmar eliminación"
+                      style={{ background: 'rgba(217,100,80,0.18)', border: '1px solid rgba(217,100,80,0.4)', cursor: 'pointer', color: '#e07060', fontSize: 11, fontWeight: 700, padding: '3px 7px', borderRadius: 6 }}>Sí</button>
+                    <button onClick={() => setPendingDelete(null)} title="Cancelar"
+                      style={{ background: 'none', border: '1px solid rgba(231,238,246,0.12)', cursor: 'pointer', color: '#6a717b', fontSize: 11, fontWeight: 600, padding: '3px 7px', borderRadius: 6 }}>No</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => setModal({ mode: 'edit', item: e })} title="Editar"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6a717b', fontSize: 15, padding: 4, borderRadius: 6 }}>✏</button>
+                    <button onClick={() => setPendingDelete(e.id)} title="Eliminar"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6a717b', fontSize: 14, padding: 4, borderRadius: 6 }}>✕</button>
+                  </>
+                )}
               </div>
             </div>
           );

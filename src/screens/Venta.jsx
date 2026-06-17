@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { esPhone, fARS, fUSD, batColor, TC, CATEGORIAS, getModelos, getCaps, getColores } from '../data/data.js';
+import { useState, useEffect } from 'react';
+import { esPhone, fARS, fUSD, batColor, CATEGORIAS, getModelos, getCaps, getColores } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
-import { validateDNI, validateTel, validateSenia, validateAnticipo, validateCanjeValor, validateCuotas, validateIMEI, validateBat } from '../lib/validation.js';
+import { validateDNI, validateTel, validateSenia, validateAnticipo, validateCanjeValor, validateCuotas, validateIMEI, validateBat, isDNIDuplicate } from '../lib/validation.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -83,13 +83,13 @@ function EquipoPicker({ equipos, value, onChange }) {
   );
 }
 
-function NuevoClienteModal({ nombre: nombreInit, onSave, onClose }) {
+function NuevoClienteModal({ nombre: nombreInit, clientes, onSave, onClose }) {
   const [nombre, setNombre] = useState(nombreInit || '');
   const [dni, setDni] = useState('');
   const [tel, setTel] = useState('');
   const [loc, setLoc] = useState('Villa Carlos Paz');
 
-  const errDni = validateDNI(dni);
+  const errDni = validateDNI(dni) || (dni && isDNIDuplicate(dni, clientes) ? 'Ya existe un cliente con ese DNI.' : null);
   const errTel = validateTel(tel);
   const canSave = nombre.trim().length > 1 && !errDni && !errTel;
 
@@ -135,26 +135,38 @@ const CANJE_IN = { width: '100%', padding: '10px 14px', borderRadius: 10, backgr
 const CANJE_LB = { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, color: '#6a717b', display: 'block' };
 
 function CanjeCombo({ value, onChange, options, placeholder }) {
+  const [otroMode, setOtroMode] = useState(false);
+  useEffect(() => { setOtroMode(false); }, [options]);
+
   if (!options || options.length === 0)
     return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={CANJE_IN} />;
+
   const isCustom = value !== '' && !options.includes(value);
-  const sel = isCustom ? '__otro__' : value;
+  const showInput = otroMode || isCustom;
+  const sel = showInput ? '__otro__' : value;
+
   return (
     <>
-      <select value={sel} onChange={e => { if (e.target.value === '__otro__') onChange(''); else onChange(e.target.value); }} style={CANJE_SEL}>
+      <select
+        value={sel}
+        onChange={e => {
+          if (e.target.value === '__otro__') { setOtroMode(true); onChange(''); }
+          else { setOtroMode(false); onChange(e.target.value); }
+        }}
+        style={CANJE_SEL}
+      >
         <option value="">— Seleccionar —</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
         <option value="__otro__">Otro…</option>
       </select>
-      {(isCustom || sel === '__otro__') && (
+      {showInput && (
         <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ ...CANJE_IN, marginTop: 8 }} />
       )}
     </>
   );
 }
 
-export default function Venta({ equipos, clientes, onConfirm, onConfirmApartado, onAddCliente }) {
-  const tc = TC;
+export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApartado, onAddCliente }) {
   const [equipoId, setEquipoId] = useState(null);
   const [modalidad, setModalidad] = useState('contado');
   const [cuotas, setCuotas] = useState(6);
@@ -245,7 +257,7 @@ export default function Venta({ equipos, clientes, onConfirm, onConfirmApartado,
     cliente,
     usd: vPrecioUSD,
     costo: selEq.costo || null,
-    tc: TC,
+    tc: tc,
     modalidad: esCuotas ? 'cuotas' : 'contado',
     cuotas: esCuotas ? cuotas : null,
     anticipo: esCuotas ? antNum : null,
@@ -263,8 +275,8 @@ export default function Venta({ equipos, clientes, onConfirm, onConfirmApartado,
       bat: canjeBat ? parseInt(canjeBat, 10) : null,
       imei: canjeImei || '',
       defectos: '',
-      usd: Math.round(canjeNum / TC),
-      costo: Math.round(canjeNum / TC),
+      usd: Math.round(canjeNum / tc),
+      costo: Math.round(canjeNum / tc),
       proveedor: 'Plan canje',
       estado: 'disponible',
       cantidad: 1,
@@ -289,7 +301,7 @@ export default function Venta({ equipos, clientes, onConfirm, onConfirmApartado,
   return (
     <div>
       {nuevoClienteModal && (
-        <NuevoClienteModal nombre={clienteSearch} onSave={handleNuevoCliente} onClose={() => setNuevoClienteModal(false)} />
+        <NuevoClienteModal nombre={clienteSearch} clientes={clientes} onSave={handleNuevoCliente} onClose={() => setNuevoClienteModal(false)} />
       )}
 
       <div style={{ marginBottom: 28 }}>

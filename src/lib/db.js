@@ -344,6 +344,37 @@ export async function deleteVenta(id) {
   if (error) throw error;
 }
 
+export async function deleteEquipo(id) {
+  const { error } = await supabase.from('equipos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateCliente(id, updates) {
+  const { data, error } = await supabase
+    .from('clientes')
+    .update({
+      nombre: updates.nombre,
+      dni:    updates.dni  || null,
+      tel:    updates.tel  || null,
+      loc:    updates.loc  || null,
+    })
+    .eq('id', id)
+    .select('*, reclamos(*)')
+    .single();
+  if (error) throw error;
+  return rowToCliente(data);
+}
+
+export async function deleteCliente(id) {
+  const { error } = await supabase.from('clientes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteReserva(id) {
+  const { error } = await supabase.from('reservas').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ─── COBROS ──────────────────────────────────────────────────────────────────
 
 export async function fetchCobros() {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { TODAY, DIAGNOSTICOS, fARS, fUSD, dnum, mesesRest, gvFmt, saldoDe } from '../data/data.js';
+import { TODAY, DIAGNOSTICOS, fARS, fUSD, dnum, saldoDe } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
+import { validateDNI, validateTel, isDNIDuplicate } from '../lib/validation.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -159,17 +160,60 @@ function UpdateReclamoModal({ reclamo, onSave, onClose }) {
   );
 }
 
-function ClienteDetail({ cli, reservas, onBack, onAddReclamo, onUpdateReclamo }) {
+function EditClienteModal({ cli, clientes, onSave, onClose }) {
+  const [nombre, setNombre] = useState(cli.nombre || '');
+  const [dni, setDni] = useState(cli.dni || '');
+  const [tel, setTel] = useState(cli.tel || '');
+  const [loc, setLoc] = useState(cli.loc || '');
+
+  const errDni = validateDNI(dni) || (dni && isDNIDuplicate(dni, clientes, cli.id) ? 'Ya existe un cliente con ese DNI.' : null);
+  const errTel = validateTel(tel);
+  const canSave = nombre.trim().length > 1 && !errDni && !errTel;
+
+  const fw = { marginBottom: 14 };
+  const field = (hasErr) => ({ width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: `1px solid ${hasErr ? 'rgba(217,138,118,0.5)' : 'rgba(231,238,246,0.09)'}`, color: '#eef2f7', fontSize: 14, boxSizing: 'border-box' });
+  const lbl = { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, color: '#6a717b', display: 'block' };
+  const errStyle = { fontSize: 11.5, color: '#e6ab98', marginTop: 5 };
+
+  return (
+    <Modal title="Editar cliente" onClose={onClose} width={460}>
+      <div style={fw}><span style={lbl}>Nombre completo *</span><input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre Apellido" style={field(false)} /></div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, ...fw }}>
+        <div>
+          <span style={lbl}>DNI</span>
+          <input value={dni} onChange={e => setDni(e.target.value)} placeholder="34521890" style={field(!!errDni)} />
+          {errDni && <div style={errStyle}>{errDni}</div>}
+        </div>
+        <div>
+          <span style={lbl}>Teléfono</span>
+          <input value={tel} onChange={e => setTel(e.target.value)} placeholder="+54 9 3541 …" style={field(!!errTel)} />
+          {errTel && <div style={errStyle}>{errTel}</div>}
+        </div>
+      </div>
+      <div style={fw}><span style={lbl}>Localidad</span><input value={loc} onChange={e => setLoc(e.target.value)} placeholder="Villa Carlos Paz" style={field(false)} /></div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+        <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+        <button onClick={() => canSave && onSave({ nombre: nombre.trim(), dni, tel, loc })} disabled={!canSave}
+          style={{ flex: 2, padding: 12, borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: canSave ? 'linear-gradient(160deg, #eef2f6, #b7c3ce)' : 'rgba(231,238,246,0.05)', color: canSave ? '#14171c' : '#6a717b', fontSize: 14, fontWeight: 600, cursor: canSave ? 'pointer' : 'default' }}>
+          Guardar cambios
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdateReclamo, onEditCliente, onDeleteCliente }) {
   const [reclamoModal, setReclamoModal] = useState(false);
   const [updateModal, setUpdateModal] = useState(null);
+  const [editModal, setEditModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const enMora = !!(cli.plan && cli.plan.mora);
   const cliCompras = cli.compras.map(co => {
-    const mr = mesesRest(co.gVence);
     const vig = dnum(co.gVence) >= dnum(TODAY);
-    let gl;
-    if (vig) gl = mr >= 1 ? `Garantía · ${mr} ${mr === 1 ? 'mes' : 'meses'}` : 'Garantía · menos de 1 mes';
-    else gl = 'Garantía vencida · ' + gvFmt(co.gVence);
+    const gd = co.gVence;
+    const fechaGar = `${String(gd.d).padStart(2,'0')}/${String(gd.m).padStart(2,'0')}/${gd.y}`;
+    const gl = vig ? `Garantía — ${fechaGar}` : `Garantía vencida — ${fechaGar}`;
     return { ...co, garVigente: vig, garLabel: gl };
   });
   const plan = cli.plan;
@@ -204,6 +248,23 @@ function ClienteDetail({ cli, reservas, onBack, onAddReclamo, onUpdateReclamo })
       {updateModal && (
         <UpdateReclamoModal reclamo={updateModal} onSave={handleUpdateReclamo} onClose={() => setUpdateModal(null)} />
       )}
+      {editModal && (
+        <EditClienteModal cli={cli} clientes={clientes} onSave={data => { onEditCliente(cli.id, data); setEditModal(false); }} onClose={() => setEditModal(false)} />
+      )}
+      {confirmDelete && (
+        <Modal title="Eliminar cliente" onClose={() => setConfirmDelete(false)} width={400}>
+          <div style={{ fontSize: 14.5, color: '#eef2f7', marginBottom: 8 }}>¿Eliminar a <strong>{cli.nombre}</strong>?</div>
+          <div style={{ fontSize: 13, color: '#828a94', marginBottom: 22, lineHeight: 1.6 }}>
+            Esta acción eliminará el cliente del sistema. Las ventas asociadas permanecerán en el historial.
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={() => { onDeleteCliente(cli.id); onBack(); }} style={{ flex: 2, padding: 12, borderRadius: 11, border: '1px solid rgba(217,100,80,0.4)', background: 'rgba(217,100,80,0.12)', color: '#e07060', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Eliminar cliente
+            </button>
+          </div>
+        </Modal>
+      )}
 
       <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#828a94', fontSize: 13.5, marginBottom: 18, padding: 0 }}>‹ Volver al directorio</button>
 
@@ -229,10 +290,16 @@ function ClienteDetail({ cli, reservas, onBack, onAddReclamo, onUpdateReclamo })
             </div>
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Saldo pendiente</div>
-          <div style={SERIF(38, '#9ec6ec')}>{fARS(saldoDe(cli))}</div>
-          <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 7 }}>Total comprado · {fUSD(cli.compras.reduce((a, b) => a + b.usd, 0))}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setEditModal(true)} style={{ padding: '7px 14px', borderRadius: 9, border: '1px solid rgba(231,238,246,0.15)', background: 'rgba(231,238,246,0.04)', color: '#a6afba', fontSize: 12.5, cursor: 'pointer' }}>✏ Editar</button>
+            <button onClick={() => setConfirmDelete(true)} style={{ padding: '7px 14px', borderRadius: 9, border: '1px solid rgba(217,100,80,0.3)', background: 'rgba(217,100,80,0.06)', color: '#e07060', fontSize: 12.5, cursor: 'pointer' }}>✕ Eliminar</button>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Saldo pendiente</div>
+            <div style={SERIF(38, '#9ec6ec')}>{fARS(saldoDe(cli))}</div>
+            <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 7 }}>Total comprado · {fUSD(cli.compras.reduce((a, b) => a + b.usd, 0))}</div>
+          </div>
         </div>
       </div>
 
@@ -261,6 +328,12 @@ function ClienteDetail({ cli, reservas, onBack, onAddReclamo, onUpdateReclamo })
                     <span style={{ ...MONO(11.5) }}>{co.imei}</span>
                     <span style={{ fontSize: 12, color: '#a6afba' }}>{co.cond}{co.bat ? ` · batería ${co.bat}%` : ' · sellado'}</span>
                     <div style={{ flex: 1 }} />
+                    {co.garantiaUrl && co.garantiaUrl.split('|').filter(Boolean).map((url, gi) => (
+                      <a key={gi} href={url} target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#74a8d6', padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(116,168,214,0.3)', background: 'rgba(116,168,214,0.06)', textDecoration: 'none' }}>
+                        ↗ {co.garantiaNombre ? co.garantiaNombre.split('|')[gi] || `Garantía ${gi+1}` : `Garantía ${gi+1}`}
+                      </a>
+                    ))}
                     {co.garVigente
                       ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#82b39d' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#82b39d', display: 'inline-block' }} />{co.garLabel}</span>
                       : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#d98a76' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d98a76', display: 'inline-block' }} />{co.garLabel}</span>
@@ -386,7 +459,7 @@ function ClienteDetail({ cli, reservas, onBack, onAddReclamo, onUpdateReclamo })
   );
 }
 
-export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateReclamo }) {
+export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateReclamo, onEditCliente, onDeleteCliente }) {
   const [view, setView] = useState('list');
   const [clienteId, setClienteId] = useState(null);
   const [search, setSearch] = useState('');
@@ -400,7 +473,18 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
   if (view === 'detail') {
     const cli = clientes.find(c => c.id === clienteId);
     if (!cli) return <div style={{ padding: 40, color: '#6a717b', textAlign: 'center' }}>Cliente no encontrado.</div>;
-    return <ClienteDetail cli={cli} reservas={reservas} onBack={goBack} onAddReclamo={onAddReclamo} onUpdateReclamo={onUpdateReclamo} />;
+    return (
+      <ClienteDetail
+        cli={cli}
+        clientes={clientes}
+        reservas={reservas}
+        onBack={goBack}
+        onAddReclamo={onAddReclamo}
+        onUpdateReclamo={onUpdateReclamo}
+        onEditCliente={onEditCliente}
+        onDeleteCliente={onDeleteCliente}
+      />
+    );
   }
 
   return (

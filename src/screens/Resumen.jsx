@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { TODAY, MONTH_ABBR, DAY_NAMES, fARS, fUSD, dnum } from '../data/data.js';
 
 const C = {
@@ -14,7 +15,10 @@ function dayNum(offset = 0) {
   return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }
 
-export default function Resumen({ equipos, ventas, cobros, reservas, onGoCobros }) {
+export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdateTC, onGoCobros }) {
+  const [tcEdit, setTcEdit] = useState(false);
+  const [tcInput, setTcInput] = useState('');
+
   const disp = equipos.filter(e => e.estado === 'disponible');
   const stockNuevos = disp.filter(e => e.cond === 'Nuevo').length;
   const stockUsados = disp.length - stockNuevos;
@@ -22,7 +26,6 @@ export default function Resumen({ equipos, ventas, cobros, reservas, onGoCobros 
   // Ventas de hoy
   const ventasHoy = ventas.filter(v => v.fechaNum === todayNum);
   const ventasHoyUSD = ventasHoy.reduce((a, b) => a + b.usd, 0);
-  const tc = 1400;
 
   // Sparkline: últimos 7 días
   const spark = Array.from({ length: 7 }, (_, i) => {
@@ -95,9 +98,36 @@ export default function Resumen({ equipos, ventas, cobros, reservas, onGoCobros 
             }
           </h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 30, border: '1px solid rgba(130,179,157,0.3)', background: 'rgba(130,179,157,0.08)' }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#82b39d', boxShadow: '0 0 0 3px rgba(130,179,157,0.18)', display: 'inline-block' }} />
-          <span style={{ fontSize: 13, color: '#b6cdc1' }}>Caja abierta</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 30, border: '1px solid rgba(130,179,157,0.3)', background: 'rgba(130,179,157,0.08)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#82b39d', boxShadow: '0 0 0 3px rgba(130,179,157,0.18)', display: 'inline-block' }} />
+            <span style={{ fontSize: 13, color: '#b6cdc1' }}>Caja abierta</span>
+          </div>
+          {/* Editor de TC del día */}
+          {tcEdit ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...C.mono(10), letterSpacing: 1.5, textTransform: 'uppercase' }}>TC $</span>
+              <input
+                autoFocus
+                type="number"
+                value={tcInput}
+                onChange={e => setTcInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { onUpdateTC(tcInput); setTcEdit(false); }
+                  if (e.key === 'Escape') setTcEdit(false);
+                }}
+                onBlur={() => { if (tcInput) onUpdateTC(tcInput); setTcEdit(false); }}
+                style={{ width: 88, padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(116,168,214,0.4)', background: '#1e2228', color: '#eef2f7', fontSize: 13, textAlign: 'right' }}
+              />
+              <button onClick={() => setTcEdit(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6a717b', fontSize: 13 }}>✕</button>
+            </div>
+          ) : (
+            <button onClick={() => { setTcInput(String(tc)); setTcEdit(true); }} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 20, border: '1px solid rgba(231,238,246,0.1)', background: 'rgba(231,238,246,0.03)', cursor: 'pointer', color: '#828a94', fontSize: 12.5 }}>
+              <span>TC del día</span>
+              <span style={{ ...C.mono(12.5, '#a6afba') }}>${tc.toLocaleString('es-AR')}</span>
+              <span style={{ fontSize: 10, color: '#6a717b' }}>✏</span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { supabase } from './lib/supabase.js';
 import * as db from './lib/db.js';
+import { TC as TC_DEFAULT } from './data/data.js';
 import Header from './components/Header.jsx';
 import Toast from './components/Toast.jsx';
 import Login from './screens/Login.jsx';
@@ -22,7 +23,19 @@ export default function App() {
   const [cobros, setCobros]     = useState([]);
   const [reservas, setReservas] = useState([]);
   const [loading, setLoading]   = useState(true);
+  const [tc, setTc]             = useState(() => {
+    const saved = localStorage.getItem('tc_dia');
+    return saved ? parseInt(saved, 10) : TC_DEFAULT;
+  });
   const toastTimer = useRef(null);
+
+  const updateTC = (newTc) => {
+    const n = parseInt(newTc, 10);
+    if (!isNaN(n) && n > 0) {
+      setTc(n);
+      localStorage.setItem('tc_dia', String(n));
+    }
+  };
 
   // Auth
   useEffect(() => {
@@ -84,6 +97,16 @@ export default function App() {
     }
   };
 
+  const deleteEquipo = async (id) => {
+    try {
+      await db.deleteEquipo(id);
+      setEquipos(prev => prev.filter(e => e.id !== id));
+      showToast('Equipo eliminado del stock');
+    } catch (e) {
+      showToast('Error al eliminar equipo: ' + e.message);
+    }
+  };
+
   // ─── CLIENTES ─────────────────────────────────────────────────────────────
 
   const addCliente = async (data) => {
@@ -102,6 +125,26 @@ export default function App() {
       };
       setClientes(prev => [...prev, fallback]);
       return fallback;
+    }
+  };
+
+  const editCliente = async (id, data) => {
+    try {
+      const updated = await db.updateCliente(id, data);
+      setClientes(prev => prev.map(c => c.id === id ? { ...updated, compras: c.compras, plan: c.plan } : c));
+      showToast('Cliente actualizado');
+    } catch (e) {
+      showToast('Error al actualizar cliente: ' + e.message);
+    }
+  };
+
+  const deleteCliente = async (id) => {
+    try {
+      await db.deleteCliente(id);
+      setClientes(prev => prev.filter(c => c.id !== id));
+      showToast('Cliente eliminado');
+    } catch (e) {
+      showToast('Error al eliminar cliente: ' + e.message);
     }
   };
 
@@ -189,6 +232,13 @@ export default function App() {
 
   const handleConfirmApartado = async (reservaData) => {
     try {
+      if (reservaData.equipoId) {
+        const eq = equipos.find(e => e.id === reservaData.equipoId);
+        if (eq && eq.estado === 'reservado') {
+          showToast('Este equipo ya tiene una reserva activa.');
+          return;
+        }
+      }
       const nueva = await db.createReserva(reservaData);
       setReservas(prev => [nueva, ...prev]);
       if (reservaData.equipoId) {
@@ -232,6 +282,23 @@ export default function App() {
     }
   };
 
+  const handleDeleteReserva = async (id, equipoId) => {
+    try {
+      await db.deleteReserva(id);
+      setReservas(prev => prev.filter(r => r.id !== id));
+      if (equipoId) {
+        const eq = equipos.find(e => e.id === equipoId);
+        if (eq && eq.estado === 'reservado') {
+          await db.updateEquipo(equipoId, { ...eq, estado: 'disponible' });
+          setEquipos(prev => prev.map(e => e.id === equipoId ? { ...e, estado: 'disponible' } : e));
+        }
+      }
+      showToast('Reserva eliminada');
+    } catch (e) {
+      showToast('Error al eliminar reserva: ' + e.message);
+    }
+  };
+
   const convertReserva = async (reservaId, ventaData) => {
     try {
       await db.updateReservaEstado(reservaId, 'convertida');
@@ -269,14 +336,16 @@ export default function App() {
           const parts = v.equipo.split(' · ');
           const gPartes = v.garantiaVence ? v.garantiaVence.split('-').map(Number) : null;
           return {
-            modelo: parts[0] || v.equipo,
-            cap:    parts[1] || '',
-            color:  parts[2] || '',
-            imei:   v.imei || '',
-            cond:   'Nuevo',
-            bat:    null,
-            usd:    v.usd,
-            fecha:  v.fechaLabel,
+            modelo:        parts[0] || v.equipo,
+            cap:           parts[1] || '',
+            color:         parts[2] || '',
+            imei:          v.imei || '',
+            cond:          'Nuevo',
+            bat:           null,
+            usd:           v.usd,
+            fecha:         v.fechaLabel,
+            garantiaUrl:   v.garantiaUrl || null,
+            garantiaNombre: v.garantiaNombre || null,
             gVence: gPartes
               ? { y: gPartes[0], m: gPartes[1], d: gPartes[2] }
               : { y: 2099, m: 1, d: 1 },
@@ -304,12 +373,12 @@ export default function App() {
     <div style={{ minHeight: '100vh', background: 'radial-gradient(120% 80% at 80% -12%, #1d232a 0%, #121417 54%)', color: '#eef2f7', fontFamily: "'Hanken Grotesk', sans-serif", display: 'flex', flexDirection: 'column' }}>
       <Header screen={screen} onNav={go} onLogout={handleLogout} />
       <main style={{ flex: 1, width: '100%', maxWidth: 1320, margin: '0 auto', padding: '38px 32px 80px' }}>
-        {screen === 'resumen'  && <Resumen equipos={equipos} ventas={ventas} cobros={cobros} reservas={reservas} onGoCobros={() => go('cobros')} />}
-        {screen === 'stock'    && <Stock equipos={equipos} onAdd={addEquipo} onUpdate={updateEquipo} />}
-        {screen === 'venta'    && <Venta equipos={equipos} clientes={clientesConCompras} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} />}
+        {screen === 'resumen'  && <Resumen equipos={equipos} ventas={ventas} cobros={cobros} reservas={reservas} tc={tc} onUpdateTC={updateTC} onGoCobros={() => go('cobros')} />}
+        {screen === 'stock'    && <Stock equipos={equipos} onAdd={addEquipo} onUpdate={updateEquipo} onDelete={deleteEquipo} />}
+        {screen === 'venta'    && <Venta equipos={equipos} clientes={clientesConCompras} tc={tc} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} />}
         {screen === 'cobros'   && <Cobros cobros={cobros} ventas={ventas} onUpdateEstado={updateCobroEstado} />}
-        {screen === 'reservas' && <Reservas reservas={reservas} equipos={equipos} onConvert={convertReserva} onCancelReserva={handleCancelReserva} />}
-        {screen === 'clientes' && <Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} />}
+        {screen === 'reservas' && <Reservas reservas={reservas} equipos={equipos} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} />}
+        {screen === 'clientes' && <Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} />}
         {screen === 'ventas'   && <Ventas ventas={ventas} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} />}
       </main>
       <Toast msg={toast} />
