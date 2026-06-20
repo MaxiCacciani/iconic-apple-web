@@ -81,6 +81,20 @@ function FieldCombo({ value, onChange, options, placeholder = '' }) {
   );
 }
 
+function findDuplicateAccesorio(equipos, form) {
+  if (esPhone(form.categoria) || !form.modelo?.trim()) return null;
+  const norm = s => (s || '').trim().toLowerCase();
+  return equipos.find(e =>
+    !esPhone(e.categoria) &&
+    e.estado === (form.estado || 'disponible') &&
+    e.categoria === form.categoria &&
+    norm(e.modelo) === norm(form.modelo) &&
+    norm(e.cap)    === norm(form.cap) &&
+    norm(e.color)  === norm(form.color) &&
+    e.cond === form.cond
+  ) || null;
+}
+
 function StockModal({ initial, equipos, onSave, onClose }) {
   const isEdit = !!initial;
   const [form, setForm] = useState(initial
@@ -89,6 +103,7 @@ function StockModal({ initial, equipos, onSave, onClose }) {
   );
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const phone = esPhone(form.categoria);
+  const duplicado = !isEdit ? findDuplicateAccesorio(equipos, form) : null;
 
   const getErrors = () => {
     const errs = [];
@@ -252,6 +267,18 @@ function StockModal({ initial, equipos, onSave, onClose }) {
         </div>
       </div>
 
+      {duplicado && (
+        <div style={{ marginBottom: 14, padding: '12px 15px', borderRadius: 10, background: 'rgba(116,168,214,0.07)', border: '1px solid rgba(116,168,214,0.3)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <span style={{ fontSize: 15, flexShrink: 0 }}>ℹ</span>
+          <div>
+            <div style={{ fontSize: 13, color: '#9ec6ec', fontWeight: 600, marginBottom: 2 }}>Ya existe este producto en stock</div>
+            <div style={{ fontSize: 12.5, color: '#a6afba', lineHeight: 1.5 }}>
+              Hay <strong style={{ color: '#eef2f7' }}>{duplicado.cantidad} ud{duplicado.cantidad !== 1 ? 's.' : '.'}</strong> disponibles.
+              {' '}Al confirmar se sumarán <strong style={{ color: '#eef2f7' }}>{parseInt(form.cantidad) || 1} más</strong> → total <strong style={{ color: '#82b39d' }}>{duplicado.cantidad + (parseInt(form.cantidad) || 1)} uds.</strong>
+            </div>
+          </div>
+        </div>
+      )}
       {errors.length > 0 && (
         <div style={{ marginBottom: 14, padding: '12px 14px', borderRadius: 10, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.25)' }}>
           {errors.map((e, i) => (
@@ -262,7 +289,7 @@ function StockModal({ initial, equipos, onSave, onClose }) {
       <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
         <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
         <button onClick={handleSave} disabled={!canSave} style={{ flex: 2, padding: '12px', borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: canSave ? 'linear-gradient(160deg, #eef2f6, #b7c3ce)' : 'rgba(231,238,246,0.05)', color: canSave ? '#14171c' : '#6a717b', fontSize: 14, fontWeight: 600, cursor: canSave ? 'pointer' : 'default' }}>
-          {isEdit ? 'Guardar cambios' : 'Agregar al stock'}
+          {isEdit ? 'Guardar cambios' : duplicado ? `Sumar ${parseInt(form.cantidad) || 1} ud${(parseInt(form.cantidad) || 1) !== 1 ? 's.' : '.'}` : 'Agregar al stock'}
         </button>
       </div>
     </Modal>
@@ -305,7 +332,12 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
 
   const handleSave = (data) => {
     if (modal.mode === 'add') {
-      onAdd(data);
+      const dup = findDuplicateAccesorio(equipos, data);
+      if (dup) {
+        onUpdate(dup.id, { ...dup, cantidad: dup.cantidad + data.cantidad });
+      } else {
+        onAdd(data);
+      }
     } else {
       onUpdate(modal.item.id, data);
     }
