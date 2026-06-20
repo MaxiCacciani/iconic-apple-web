@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { supabase } from './lib/supabase.js';
 import * as db from './lib/db.js';
-import { TC as TC_DEFAULT } from './data/data.js';
+import { TC as TC_DEFAULT, esPhone } from './data/data.js';
 import Header from './components/Header.jsx';
 import Toast from './components/Toast.jsx';
 import Login from './screens/Login.jsx';
@@ -197,15 +197,25 @@ export default function App() {
         // Recargar cobros para tener los IDs correctos
         db.fetchCobros().then(cbs => setCobros(cbs));
       }
-      // Marcar equipos como vendidos (soporta carrito multi-item via lineas)
+      // Actualizar equipos vendidos (soporta carrito multi-item via lineas)
       const lineasVenta = ventaData.lineas && ventaData.lineas.length > 0 ? ventaData.lineas : (ventaData.equipoId ? [{ equipoId: ventaData.equipoId }] : []);
       const vendidoIds = lineasVenta.map(l => l.equipoId).filter(Boolean);
       for (const eid of vendidoIds) {
         const eq = equipos.find(e => e.id === eid);
-        if (eq) await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
+        if (!eq) continue;
+        if (!esPhone(eq.categoria) && eq.cantidad > 1) {
+          // Accesorio con stock: descontar 1 unidad, mantener disponible
+          await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - 1 });
+        } else {
+          await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
+        }
       }
       if (vendidoIds.length > 0) {
-        setEquipos(prev => prev.map(e => vendidoIds.includes(e.id) ? { ...e, estado: 'vendido' } : e));
+        setEquipos(prev => prev.map(e => {
+          if (!vendidoIds.includes(e.id)) return e;
+          if (!esPhone(e.categoria) && e.cantidad > 1) return { ...e, cantidad: e.cantidad - 1 };
+          return { ...e, estado: 'vendido' };
+        }));
       }
       // Agregar equipo de canje al stock
       if (ventaData.canje && ventaData.canjeEquipoData) {
@@ -338,19 +348,33 @@ export default function App() {
           const parts = v.equipo.split(' · ');
           const gPartes = v.garantiaVence ? v.garantiaVence.split('-').map(Number) : null;
           return {
-            modelo:        parts[0] || v.equipo,
-            cap:           parts[1] || '',
-            color:         parts[2] || '',
-            imei:          v.imei || '',
-            cond:          'Nuevo',
-            bat:           null,
-            usd:           v.usd,
-            fecha:         v.fechaLabel,
-            garantiaUrl:   v.garantiaUrl || null,
+            modelo:         parts[0] || v.equipo,
+            cap:            parts[1] || '',
+            color:          parts[2] || '',
+            imei:           v.imei || '',
+            cond:           'Nuevo',
+            bat:            null,
+            usd:            v.usd,
+            fecha:          v.fechaLabel,
+            garantiaUrl:    v.garantiaUrl || null,
             garantiaNombre: v.garantiaNombre || null,
             gVence: gPartes
               ? { y: gPartes[0], m: gPartes[1], d: gPartes[2] }
               : { y: 2099, m: 1, d: 1 },
+            // Datos para el modal de detalle
+            ventaId:    v.id,
+            equipo:     v.equipo,
+            lineas:     v.lineas || null,
+            modalidad:  v.modalidad,
+            metodo:     v.metodo,
+            cuotas:     v.cuotas || null,
+            cuotaMonto: v.cuotaMonto || null,
+            anticipo:   v.anticipo || null,
+            canje:      v.canje || false,
+            canjeEquipo: v.canjeEquipo || null,
+            canjeValor:  v.canjeValor || null,
+            tc:         v.tc || TC_DEFAULT,
+            cliente:    v.cliente,
           };
         }),
     })),

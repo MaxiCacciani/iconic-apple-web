@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TODAY, DIAGNOSTICOS, fARS, fUSD, dnum, saldoDe } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
+import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
 import { validateDNI, validateTel, isDNIDuplicate } from '../lib/validation.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
@@ -207,6 +208,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
   const [updateModal, setUpdateModal] = useState(null);
   const [editModal, setEditModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [detalleCompra, setDetalleCompra] = useState(null);
 
   const enMora = !!(cli.plan && cli.plan.mora);
   const cliCompras = cli.compras.map(co => {
@@ -266,6 +268,8 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
         </Modal>
       )}
 
+      {detalleCompra && <VentaDetalleModal venta={detalleCompra} onClose={() => setDetalleCompra(null)} />}
+
       <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#828a94', fontSize: 13.5, marginBottom: 18, padding: 0 }}>‹ Volver al directorio</button>
 
       {/* Header card */}
@@ -312,35 +316,47 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
             <span style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase' }}>Equipos comprados · {cliCompras.length}</span>
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {cliCompras.length === 0 && <div style={{ paddingTop: 16, color: '#6a717b', fontSize: 13.5 }}>Todavía sin compras registradas.</div>}
-              {cliCompras.map((co, i) => (
-                <div key={i} style={{ padding: '16px 18px', borderRadius: 14, border: '1px solid rgba(231,238,246,0.07)', background: 'rgba(231,238,246,0.015)' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 15.5, fontWeight: 600, color: '#eef2f7' }}>{co.modelo}</div>
-                      <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 2 }}>{co.cap} · {co.color}</div>
+              {cliCompras.map((co, i) => {
+                const esMulti = co.lineas && co.lineas.length > 1;
+                return (
+                  <div key={i} onClick={() => setDetalleCompra(co)} style={{ padding: '16px 18px', borderRadius: 14, border: '1px solid rgba(231,238,246,0.07)', background: 'rgba(231,238,246,0.015)', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 15.5, fontWeight: 600, color: '#eef2f7' }}>{co.modelo}</span>
+                          {esMulti && (
+                            <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 5, background: 'rgba(116,168,214,0.12)', border: '1px solid rgba(116,168,214,0.3)', color: '#74a8d6', whiteSpace: 'nowrap' }}>
+                              {co.lineas.length} productos
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 2 }}>{co.cap}{co.color ? ` · ${co.color}` : ''}</div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap' }}>{fUSD(co.usd)}</div>
+                        <div style={{ fontSize: 12, color: '#828a94', marginTop: 1, whiteSpace: 'nowrap' }}>{co.fecha}</div>
+                        <div style={{ fontSize: 11, color: '#6a717b', marginTop: 3 }}>Ver detalle →</div>
+                      </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap' }}>{fUSD(co.usd)}</div>
-                      <div style={{ fontSize: 12, color: '#828a94', marginTop: 1, whiteSpace: 'nowrap' }}>{co.fecha}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 13, paddingTop: 13, borderTop: '1px solid rgba(231,238,246,0.06)', flexWrap: 'wrap' }}>
+                      {co.imei && <span style={{ ...MONO(11.5) }}>{co.imei}</span>}
+                      <span style={{ fontSize: 12, color: '#a6afba' }}>{co.cond}{co.bat ? ` · batería ${co.bat}%` : ' · sellado'}</span>
+                      <div style={{ flex: 1 }} />
+                      {co.garantiaUrl && co.garantiaUrl.split('|').filter(Boolean).map((url, gi) => (
+                        <a key={gi} href={url} target="_blank" rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#74a8d6', padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(116,168,214,0.3)', background: 'rgba(116,168,214,0.06)', textDecoration: 'none' }}>
+                          ↗ {co.garantiaNombre ? co.garantiaNombre.split('|')[gi] || `Garantía ${gi+1}` : `Garantía ${gi+1}`}
+                        </a>
+                      ))}
+                      {co.garVigente
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#82b39d' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#82b39d', display: 'inline-block' }} />{co.garLabel}</span>
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#d98a76' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d98a76', display: 'inline-block' }} />{co.garLabel}</span>
+                      }
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 13, paddingTop: 13, borderTop: '1px solid rgba(231,238,246,0.06)', flexWrap: 'wrap' }}>
-                    <span style={{ ...MONO(11.5) }}>{co.imei}</span>
-                    <span style={{ fontSize: 12, color: '#a6afba' }}>{co.cond}{co.bat ? ` · batería ${co.bat}%` : ' · sellado'}</span>
-                    <div style={{ flex: 1 }} />
-                    {co.garantiaUrl && co.garantiaUrl.split('|').filter(Boolean).map((url, gi) => (
-                      <a key={gi} href={url} target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#74a8d6', padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(116,168,214,0.3)', background: 'rgba(116,168,214,0.06)', textDecoration: 'none' }}>
-                        ↗ {co.garantiaNombre ? co.garantiaNombre.split('|')[gi] || `Garantía ${gi+1}` : `Garantía ${gi+1}`}
-                      </a>
-                    ))}
-                    {co.garVigente
-                      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#82b39d' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#82b39d', display: 'inline-block' }} />{co.garLabel}</span>
-                      : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#d98a76' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#d98a76', display: 'inline-block' }} />{co.garLabel}</span>
-                    }
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

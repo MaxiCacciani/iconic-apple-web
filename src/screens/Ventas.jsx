@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { fARS, fUSD, TC as TC_ACTUAL } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
+import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
 
 function EditCostoModal({ venta, onSave, onClose }) {
   const [costo, setCosto] = useState(venta.costo ? String(venta.costo) : '');
@@ -147,6 +148,7 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
   const [viewingGarantia, setViewingGarantia] = useState(null);
   const [deletingVenta, setDeletingVenta] = useState(null);
   const [editingCosto, setEditingCosto] = useState(null);
+  const [detalleVenta, setDetalleVenta] = useState(null);
   const fileInputRef = useRef(null);
   const uploadingForRef = useRef(null);
 
@@ -246,9 +248,10 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
 
   return (
     <div>
-      {ventaViewing  && <GarantiaModal   venta={ventaViewing}  onClose={() => setViewingGarantia(null)} onDelete={handleDeleteGarantia} />}
-      {ventaDeleting && <DeleteVentaModal venta={ventaDeleting} onClose={() => setDeletingVenta(null)}  onConfirm={(id) => { onDeleteVenta(id); setDeletingVenta(null); }} />}
-      {ventaEditing  && <EditCostoModal   venta={ventaEditing}  onClose={() => setEditingCosto(null)}   onSave={(id, c) => { onUpdateVenta(id, { costo: c }); setEditingCosto(null); }} />}
+      {ventaViewing  && <GarantiaModal      venta={ventaViewing}  onClose={() => setViewingGarantia(null)} onDelete={handleDeleteGarantia} />}
+      {ventaDeleting && <DeleteVentaModal   venta={ventaDeleting} onClose={() => setDeletingVenta(null)}  onConfirm={(id) => { onDeleteVenta(id); setDeletingVenta(null); }} />}
+      {ventaEditing  && <EditCostoModal     venta={ventaEditing}  onClose={() => setEditingCosto(null)}   onSave={(id, c) => { onUpdateVenta(id, { costo: c }); setEditingCosto(null); }} />}
+      {detalleVenta  && <VentaDetalleModal  venta={detalleVenta}  onClose={() => setDetalleVenta(null)} />}
 
       {/* Hidden file input for warranty upload */}
       <input
@@ -355,14 +358,22 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
         const ganancia = v.costo ? (v.usd - v.costo) : null;
         const margen = v.costo && v.costo > 0 ? Math.round(((v.usd - v.costo) / v.costo) * 100) : null;
         const tieneGarantia = !!v.garantiaUrl;
+        const esMulti = v.lineas && v.lineas.length > 1;
         return (
-          <div key={v.id} style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid rgba(231,238,246,0.05)', borderRadius: 10, background: esNueva ? 'rgba(116,168,214,0.04)' : 'none' }}>
+          <div key={v.id} onClick={() => setDetalleVenta(v)} style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid rgba(231,238,246,0.05)', borderRadius: 10, background: esNueva ? 'rgba(116,168,214,0.04)' : 'none', cursor: 'pointer' }}>
             {/* Fecha */}
             <div style={{ ...MONO(12, '#828a94') }}>{v.fechaLabel}</div>
 
             {/* Equipo */}
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{v.equipo}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{v.equipo}</span>
+                {esMulti && (
+                  <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 5, background: 'rgba(116,168,214,0.12)', border: '1px solid rgba(116,168,214,0.3)', color: '#74a8d6', whiteSpace: 'nowrap' }}>
+                    {v.lineas.length} productos
+                  </span>
+                )}
+              </div>
               {v.imei && <div style={{ ...MONO(11, '#6a717b'), marginTop: 3, letterSpacing: 0.2 }}>{v.imei}</div>}
               {v.canje && v.canjeEquipo && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5, padding: '2px 8px', borderRadius: 6, background: 'rgba(166,175,186,0.1)', border: '1px solid rgba(166,175,186,0.2)' }}>
@@ -435,7 +446,7 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
             {/* Garantía */}
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button
-                onClick={() => handleGarantiaClick(v)}
+                onClick={e => { e.stopPropagation(); handleGarantiaClick(v); }}
                 title={tieneGarantia ? `Ver garantía: ${v.garantiaNombre}` : 'Adjuntar garantía'}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: tieneGarantia ? '#82b39d' : '#6a717b', fontSize: 15 }}
               >
@@ -446,7 +457,7 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
             {/* Eliminar */}
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button
-                onClick={() => setDeletingVenta(v.id)}
+                onClick={e => { e.stopPropagation(); setDeletingVenta(v.id); }}
                 title="Eliminar venta"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a5058', fontSize: 14 }}
               >
