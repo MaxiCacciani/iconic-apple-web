@@ -197,13 +197,15 @@ export default function App() {
         // Recargar cobros para tener los IDs correctos
         db.fetchCobros().then(cbs => setCobros(cbs));
       }
-      // Marcar equipo como vendido
-      if (ventaData.equipoId) {
-        const eq = equipos.find(e => e.id === ventaData.equipoId);
-        if (eq) {
-          await db.updateEquipo(ventaData.equipoId, { ...eq, estado: 'vendido' });
-          setEquipos(prev => prev.map(e => e.id === ventaData.equipoId ? { ...e, estado: 'vendido' } : e));
-        }
+      // Marcar equipos como vendidos (soporta carrito multi-item via lineas)
+      const lineasVenta = ventaData.lineas && ventaData.lineas.length > 0 ? ventaData.lineas : (ventaData.equipoId ? [{ equipoId: ventaData.equipoId }] : []);
+      const vendidoIds = lineasVenta.map(l => l.equipoId).filter(Boolean);
+      for (const eid of vendidoIds) {
+        const eq = equipos.find(e => e.id === eid);
+        if (eq) await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
+      }
+      if (vendidoIds.length > 0) {
+        setEquipos(prev => prev.map(e => vendidoIds.includes(e.id) ? { ...e, estado: 'vendido' } : e));
       }
       // Agregar equipo de canje al stock
       if (ventaData.canje && ventaData.canjeEquipoData) {

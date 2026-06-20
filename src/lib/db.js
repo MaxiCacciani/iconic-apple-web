@@ -79,6 +79,7 @@ function rowToVenta(r) {
     garantiaUrl: r.garantia_url || null,
     garantiaNombre: r.garantia_nombre || null,
     garantiaVence,
+    lineas: r.lineas || null,
   };
 }
 
@@ -181,6 +182,7 @@ function ventaToRow(v) {
     canje_valor: v.canjeValor ?? null,
     garantia_url: v.garantiaUrl || null,
     garantia_nombre: v.garantiaNombre || null,
+    lineas: v.lineas || null,
   };
 }
 

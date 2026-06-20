@@ -19,7 +19,7 @@ function BatBadge({ bat }) {
   );
 }
 
-function EquipoPicker({ equipos, value, onChange }) {
+function EquipoPicker({ equipos, carrito, onAdd, onRemove }) {
   const [q, setQ] = useState('');
   const [filtroCond, setFiltroCond] = useState('todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
@@ -49,15 +49,15 @@ function EquipoPicker({ equipos, value, onChange }) {
         <span style={{ width: 1, background: 'rgba(231,238,246,0.1)', alignSelf: 'stretch', margin: '0 2px' }} />
         {tiposDisp.map(t => <button key={t} onClick={() => setFiltroTipo(t)} style={pillB(filtroTipo === t)}>{t === 'todos' ? 'Todos' : t}</button>)}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 320, overflowY: 'auto', paddingRight: 4 }}>
         {filtrados.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: '#6a717b', fontSize: 13.5 }}>Sin resultados{q ? ` para "${q}"` : ''}.</div>}
         {filtrados.map(e => {
-          const active = value === e.id;
+          const enCarrito = carrito.some(c => c.id === e.id);
           const isPhone = esPhone(e.categoria);
           const tieneDefectos = e.defectos && e.defectos.trim().length > 0;
           return (
-            <button key={e.id} onClick={() => onChange(e.id)} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 14, width: '100%', textAlign: 'left', padding: '13px 16px', borderRadius: 12, border: `1px solid ${active ? 'rgba(116,168,214,0.5)' : tieneDefectos ? 'rgba(217,138,118,0.25)' : 'rgba(231,238,246,0.08)'}`, background: active ? 'rgba(116,168,214,0.07)' : 'rgba(231,238,246,0.02)', cursor: 'pointer' }}>
-              {active && <span style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, borderRadius: '0 3px 3px 0', background: '#74a8d6' }} />}
+            <div key={e.id} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 14, padding: '13px 16px', borderRadius: 12, border: `1px solid ${enCarrito ? 'rgba(130,179,157,0.45)' : tieneDefectos ? 'rgba(217,138,118,0.25)' : 'rgba(231,238,246,0.08)'}`, background: enCarrito ? 'rgba(130,179,157,0.05)' : 'rgba(231,238,246,0.02)' }}>
+              {enCarrito && <span style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, borderRadius: '0 3px 3px 0', background: '#82b39d' }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{e.modelo}</span>
@@ -71,10 +71,12 @@ function EquipoPicker({ equipos, value, onChange }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
                 <span style={{ fontSize: 15, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(e.usd)}</span>
-                {active ? <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#74a8d6', color: '#14171c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>✓</span>
-                        : <span style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid rgba(231,238,246,0.16)' }} />}
+                {enCarrito
+                  ? <button onClick={() => onRemove(e.id)} style={{ fontSize: 12, fontWeight: 600, color: '#82b39d', background: 'rgba(130,179,157,0.1)', border: '1px solid rgba(130,179,157,0.3)', padding: '5px 10px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>✓ Quitar</button>
+                  : <button onClick={() => onAdd(e)} style={{ fontSize: 12, fontWeight: 600, color: '#74a8d6', background: 'rgba(116,168,214,0.08)', border: '1px solid rgba(116,168,214,0.3)', padding: '5px 10px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Agregar</button>
+                }
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -167,7 +169,7 @@ function CanjeCombo({ value, onChange, options, placeholder }) {
 }
 
 export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApartado, onAddCliente }) {
-  const [equipoId, setEquipoId] = useState(null);
+  const [carrito, setCarrito] = useState([]);
   const [modalidad, setModalidad] = useState('contado');
   const [cuotas, setCuotas] = useState(6);
   const [cuotasCustom, setCuotasCustom] = useState(false);
@@ -177,10 +179,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [clienteId, setClienteId] = useState(null);
   const [clienteSearch, setClienteSearch] = useState('');
   const [nuevoClienteModal, setNuevoClienteModal] = useState(false);
-  // Contado con seña
   const [tieneApartado, setTieneApartado] = useState(false);
   const [seniaContado, setSeniaContado] = useState('');
-  // Plan canje
   const [canje, setCanje] = useState(false);
   const [canjeCategoria, setCanjeCategoria] = useState('iPhone');
   const [canjeModelo, setCanjeModelo] = useState('');
@@ -191,8 +191,11 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [canjeBat, setCanjeBat] = useState('');
   const [canjeValor, setCanjeValor] = useState('');
 
-  const selEq = equipos.find(e => e.id === equipoId) || null;
-  const vPrecioUSD = selEq ? selEq.usd : 0;
+  const addToCarrito = (eq) => setCarrito(prev => [...prev, eq]);
+  const removeFromCarrito = (id) => setCarrito(prev => prev.filter(e => e.id !== id));
+
+  const primerEq = carrito[0] || null;
+  const vPrecioUSD = carrito.reduce((a, b) => a + b.usd, 0);
   const vPrecioARS = vPrecioUSD * tc;
   const antNum = parseInt(anticipo || '0', 10) || 0;
   const seniaNum = parseInt(seniaContado || '0', 10) || 0;
@@ -204,8 +207,9 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const saldoTrasCanje = Math.max(0, vPrecioARS - canjeNum);
   const canjeIsPhone = esPhone(canjeCategoria);
   const canjeEquipoLabel = [canjeModelo, canjeCap, canjeColor].filter(Boolean).join(' · ');
+  // Apartado solo disponible si hay un único equipo (la reserva refiere a un equipo específico)
+  const puedeApartado = carrito.length <= 1;
 
-  // Validaciones de pago
   const ventaErrors = (() => {
     const e = [];
     if (esCuotas) {
@@ -233,61 +237,77 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
 
   const cq = clienteSearch.trim().toLowerCase();
   const clienteMatches = clientes.filter(c => !cq || (c.nombre + ' ' + c.dni).toLowerCase().includes(cq)).slice(0, 5);
-  const canConfirm = !!selEq && !!cliente && ventaErrors.length === 0;
+  const canConfirm = carrito.length > 0 && !!cliente && ventaErrors.length === 0;
 
   const handlePickCuotas = (n) => { setCuotas(n); setCuotasCustom(false); };
   const handleCuotasInput = (v) => { const n = parseInt(v) || 0; setCuotas(n); };
-
   const handleSelectCliente = (c) => { setCliente(c.nombre); setClienteId(c.id); setClienteSearch(''); };
 
-  const handleNuevoCliente = (data) => {
-    const nuevo = onAddCliente(data);
-    setCliente(nuevo.nombre);
-    setClienteId(nuevo.id);
+  const handleNuevoCliente = async (data) => {
+    const nuevo = await onAddCliente(data);
+    if (nuevo) {
+      setCliente(nuevo.nombre);
+      setClienteId(nuevo.id);
+    }
     setClienteSearch('');
     setNuevoClienteModal(false);
   };
 
-  const buildVentaData = () => ({
-    equipoId: equipoId,
-    clienteId: clienteId,
-    equipo: [selEq.modelo, selEq.cap, selEq.color].filter(Boolean).join(' · '),
-    imei: selEq.imei || '',
-    categoria: selEq.categoria,
-    cliente,
-    usd: vPrecioUSD,
-    costo: selEq.costo || null,
-    tc: tc,
-    modalidad: esCuotas ? 'cuotas' : 'contado',
-    cuotas: esCuotas ? cuotas : null,
-    anticipo: esCuotas ? antNum : null,
-    metodo,
-    cuotaMonto: esCuotas ? cuotaMonto : null,
-    canje,
-    canjeEquipo: canje ? canjeEquipoLabel : null,
-    canjeValor: canje ? canjeNum : null,
-    canjeEquipoData: canje && canjeModelo ? {
-      categoria: canjeCategoria,
-      modelo: canjeModelo,
-      cap: canjeCap || null,
-      color: canjeColor || null,
-      cond: canjeCond,
-      bat: canjeBat ? parseInt(canjeBat, 10) : null,
-      imei: canjeImei || '',
-      defectos: '',
-      usd: Math.round(canjeNum / tc),
-      costo: Math.round(canjeNum / tc),
-      proveedor: 'Plan canje',
-      estado: 'disponible',
-      cantidad: 1,
-    } : null,
-  });
+  const buildLineas = () => carrito.map(e => ({
+    equipoId: e.id,
+    equipo: [e.modelo, e.cap, e.color].filter(Boolean).join(' · '),
+    imei: e.imei || '',
+    categoria: e.categoria,
+    usd: e.usd,
+    costo: e.costo || null,
+  }));
+
+  const buildVentaData = () => {
+    const lineas = buildLineas();
+    const etiquetaEquipo = lineas.length === 1
+      ? lineas[0].equipo
+      : `${lineas[0].equipo} + ${lineas.length - 1} más`;
+    return {
+      clienteId,
+      equipo: etiquetaEquipo,
+      imei: primerEq?.imei || '',
+      categoria: primerEq?.categoria || '',
+      cliente,
+      usd: vPrecioUSD,
+      costo: carrito.reduce((a, b) => a + (b.costo || 0), 0) || null,
+      tc,
+      modalidad: esCuotas ? 'cuotas' : 'contado',
+      cuotas: esCuotas ? cuotas : null,
+      anticipo: esCuotas ? antNum : null,
+      metodo,
+      cuotaMonto: esCuotas ? cuotaMonto : null,
+      canje,
+      canjeEquipo: canje ? canjeEquipoLabel : null,
+      canjeValor: canje ? canjeNum : null,
+      lineas,
+      canjeEquipoData: canje && canjeModelo ? {
+        categoria: canjeCategoria,
+        modelo: canjeModelo,
+        cap: canjeCap || null,
+        color: canjeColor || null,
+        cond: canjeCond,
+        bat: canjeBat ? parseInt(canjeBat, 10) : null,
+        imei: canjeImei || '',
+        defectos: '',
+        usd: Math.round(canjeNum / tc),
+        costo: Math.round(canjeNum / tc),
+        proveedor: 'Plan canje',
+        estado: 'disponible',
+        cantidad: 1,
+      } : null,
+    };
+  };
 
   const buildReservaData = () => ({
-    equipoId: equipoId,
-    clienteId: clienteId,
-    equipo: selEq.modelo,
-    spec: [selEq.cap, selEq.color].filter(Boolean).join(' · '),
+    equipoId: primerEq?.id || null,
+    clienteId,
+    equipo: primerEq?.modelo || '',
+    spec: [primerEq?.cap, primerEq?.color].filter(Boolean).join(' · '),
     cliente,
     sena: seniaNum,
     usd: vPrecioUSD,
@@ -296,7 +316,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const stepLabel = () => ({ ...MONO(11, '#74a8d6'), border: '1px solid rgba(116,168,214,0.4)', borderRadius: 6, padding: '2px 7px' });
   const pillSel = { padding: '16px', borderRadius: 13, background: 'rgba(116,168,214,0.12)', border: '1px solid rgba(116,168,214,0.5)', textAlign: 'left' };
   const pillUnsel = { padding: '16px', borderRadius: 13, background: 'rgba(231,238,246,0.02)', border: '1px solid rgba(231,238,246,0.09)', textAlign: 'left' };
-  const inputStyle = { width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14 };
 
   return (
     <div>
@@ -314,14 +333,42 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.42fr) minmax(0,1fr)', gap: 24, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
 
-          {/* Step 01 – Equipo */}
+          {/* Step 01 – Equipos */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 15 }}>
               <span style={stepLabel()}>01</span>
-              <span style={{ fontSize: 15.5, fontWeight: 600 }}>Equipo</span>
-              {selEq && <span style={{ fontSize: 12.5, color: '#82b39d', marginLeft: 'auto' }}>✓ {selEq.modelo} seleccionado</span>}
+              <span style={{ fontSize: 15.5, fontWeight: 600 }}>Equipos</span>
+              {carrito.length > 0 && (
+                <span style={{ fontSize: 12.5, color: '#82b39d', marginLeft: 'auto' }}>
+                  ✓ {carrito.length} equipo{carrito.length > 1 ? 's' : ''} · {fUSD(vPrecioUSD)}
+                </span>
+              )}
             </div>
-            <EquipoPicker equipos={equipos} value={equipoId} onChange={setEquipoId} />
+
+            {/* Carrito summary */}
+            {carrito.length > 0 && (
+              <div style={{ marginBottom: 12, padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(130,179,157,0.25)', background: 'rgba(130,179,157,0.04)' }}>
+                <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 9 }}>En esta venta</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {carrito.map((e, i) => (
+                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 500, color: '#eef2f7', flex: 1 }}>
+                        {e.modelo}{e.cap ? ` · ${e.cap}` : ''}{e.color ? ` · ${e.color}` : ''}
+                      </span>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(e.usd)}</span>
+                      <button onClick={() => removeFromCarrito(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6a717b', fontSize: 14, padding: '2px 6px', borderRadius: 5, lineHeight: 1 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+                {carrito.length > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(231,238,246,0.08)' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>Total {fUSD(vPrecioUSD)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <EquipoPicker equipos={equipos} carrito={carrito} onAdd={addToCarrito} onRemove={removeFromCarrito} />
           </div>
 
           {/* Step 02 – Cliente */}
@@ -335,7 +382,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, padding: '11px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.08)' }}>
                   <span style={{ color: '#6a717b', fontSize: 14 }}>⌕</span>
-                  <input value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} placeholder="Buscar por nombre o DNI…" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 13.5 }} autoFocus={false} />
+                  <input value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} placeholder="Buscar por nombre o DNI…" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 13.5 }} />
                   {clienteSearch && <button onClick={() => setClienteSearch('')} style={{ background: 'none', border: 'none', color: '#6a717b', cursor: 'pointer', fontSize: 15, padding: 0 }}>×</button>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -379,24 +426,26 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               })}
             </div>
 
-            {/* Contado: opción apartado */}
             {!esCuotas && (
               <div style={{ padding: 18, borderRadius: 13, border: '1px solid rgba(231,238,246,0.07)', background: 'rgba(231,238,246,0.015)', marginBottom: 4 }}>
                 <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>¿El cliente paga ahora?</div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  {[[false,'Sí, pago total','El cliente se lleva el equipo hoy'],[true,'Apartado con seña','El cliente paga una parte y busca el equipo después']].map(([val, t, sub]) => {
+                  {[[false,'Sí, pago total','El cliente se lleva el equipo hoy'],[true,'Apartado con seña','El cliente paga una parte y busca después']].map(([val, t, sub]) => {
                     const sel = tieneApartado === val;
+                    const disabled = val === true && !puedeApartado;
                     return (
-                      <button key={String(val)} onClick={() => setTieneApartado(val)} style={{ flex: 1, cursor: 'pointer', padding: 0, background: 'none', border: 'none' }}>
+                      <button key={String(val)} onClick={() => !disabled && setTieneApartado(val)} style={{ flex: 1, cursor: disabled ? 'default' : 'pointer', padding: 0, background: 'none', border: 'none', opacity: disabled ? 0.4 : 1 }}>
                         <div style={{ padding: '13px 14px', borderRadius: 11, background: sel ? 'rgba(116,168,214,0.1)' : 'rgba(231,238,246,0.02)', border: `1px solid ${sel ? 'rgba(116,168,214,0.4)' : 'rgba(231,238,246,0.08)'}`, textAlign: 'left' }}>
                           <div style={{ fontSize: 13.5, fontWeight: 600, color: sel ? '#eef2f7' : '#a6afba' }}>{t}</div>
-                          <div style={{ fontSize: 11.5, color: sel ? '#93b8da' : '#6a717b', marginTop: 3, lineHeight: 1.4 }}>{sub}</div>
+                          <div style={{ fontSize: 11.5, color: sel ? '#93b8da' : '#6a717b', marginTop: 3, lineHeight: 1.4 }}>
+                            {disabled ? 'Solo disponible con 1 equipo' : sub}
+                          </div>
                         </div>
                       </button>
                     );
                   })}
                 </div>
-                {tieneApartado && (
+                {tieneApartado && puedeApartado && (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 9 }}>Seña / Señal (ARS)</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)' }}>
@@ -414,7 +463,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               </div>
             )}
 
-            {/* Cuotas */}
             {esCuotas && (
               <div style={{ padding: 18, borderRadius: 13, border: '1px solid rgba(231,238,246,0.07)', background: 'rgba(231,238,246,0.015)' }}>
                 <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 11 }}>Cantidad de cuotas</div>
@@ -453,7 +501,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <span style={{ fontSize: 15.5, fontWeight: 600 }}>Método de pago</span>
             </div>
 
-            {/* Toggle Plan Canje */}
             <button
               onClick={() => { setCanje(!canje); setCanjeCategoria('iPhone'); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); setCanjeCond('Usado'); setCanjeImei(''); setCanjeBat(''); setCanjeValor(''); }}
               style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '13px 16px', borderRadius: 12, border: `1px solid ${canje ? 'rgba(166,175,186,0.5)' : 'rgba(231,238,246,0.1)'}`, background: canje ? 'rgba(166,175,186,0.1)' : 'rgba(231,238,246,0.02)', cursor: 'pointer', marginBottom: 16 }}
@@ -467,26 +514,19 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               </div>
             </button>
 
-            {/* Detalle del canje */}
             {canje && (
               <div style={{ padding: 18, borderRadius: 13, border: '1px solid rgba(166,175,186,0.2)', background: 'rgba(166,175,186,0.04)', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', color: '#6a717b' }}>Equipo entregado en canje</div>
-
-                {/* Categoría */}
                 <div>
                   <span style={CANJE_LB}>Categoría</span>
                   <select value={canjeCategoria} onChange={e => { setCanjeCategoria(e.target.value); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); }} style={CANJE_SEL}>
                     {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
-
-                {/* Modelo */}
                 <div>
                   <span style={CANJE_LB}>Modelo</span>
                   <CanjeCombo value={canjeModelo} onChange={setCanjeModelo} options={getModelos(canjeCategoria)} placeholder="ej. iPhone 13" />
                 </div>
-
-                {/* Cap + Color */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <span style={CANJE_LB}>Capacidad</span>
@@ -497,8 +537,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                     <CanjeCombo value={canjeColor} onChange={setCanjeColor} options={canjeIsPhone ? getColores(canjeModelo) : []} placeholder="ej. Negro" />
                   </div>
                 </div>
-
-                {/* Condición */}
                 <div>
                   <span style={CANJE_LB}>Condición</span>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -507,8 +545,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                     ))}
                   </div>
                 </div>
-
-                {/* IMEI + Batería */}
                 <div style={{ display: 'grid', gridTemplateColumns: canjeIsPhone ? '1.6fr 1fr' : '1fr', gap: 12 }}>
                   {canjeIsPhone && (
                     <div>
@@ -523,8 +559,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                     </div>
                   )}
                 </div>
-
-                {/* Valor canje */}
                 <div>
                   <span style={CANJE_LB}>Valor del equipo (ARS) — será el costo en stock</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)' }}>
@@ -532,7 +566,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                     <input type="text" inputMode="numeric" value={canjeValor} onChange={e => setCanjeValor(e.target.value.replace(/[^0-9]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
                   </div>
                 </div>
-
                 {canjeNum > 0 && vPrecioARS > 0 && (
                   <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.08)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: '#828a94', marginBottom: 6 }}>
@@ -571,28 +604,48 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
             <span style={SERIF(22)}>Comprobante</span>
             <span style={{ ...MONO(9.5, '#93b8da'), letterSpacing: 1.5, textTransform: 'uppercase', padding: '3px 9px', borderRadius: 20, border: '1px solid rgba(116,168,214,0.3)' }}>Borrador</span>
           </div>
+
+          {/* Ítems del carrito */}
           <div style={{ paddingBottom: 18, borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#eef2f7' }}>{selEq ? selEq.modelo : 'Elegí un equipo'}</div>
-            <div style={{ fontSize: 13, color: '#828a94', marginTop: 2 }}>{selEq ? `${selEq.cap}${selEq.cap ? ' · ' : ''}${selEq.color}` : 'Pendiente de selección'}</div>
-            {selEq && esPhone(selEq.categoria) && selEq.imei && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8 }}>
-                <span style={{ ...MONO(10, '#6a717b'), letterSpacing: 1, textTransform: 'uppercase' }}>IMEI</span>
-                <span style={{ ...MONO(12, '#a6afba') }}>{selEq.imei}</span>
+            {carrito.length === 0 ? (
+              <div style={{ fontSize: 14, color: '#4a5058' }}>Agregá al menos un equipo</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {carrito.map((e, i) => {
+                  const isPhone = esPhone(e.categoria);
+                  return (
+                    <div key={e.id} style={{ paddingBottom: carrito.length > 1 ? 12 : 0, borderBottom: carrito.length > 1 && i < carrito.length - 1 ? '1px solid rgba(231,238,246,0.06)' : 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{e.modelo}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(e.usd)}</div>
+                      </div>
+                      <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 1 }}>{[e.cap, e.color].filter(Boolean).join(' · ')}</div>
+                      {isPhone && e.imei && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
+                          <span style={{ ...MONO(10, '#6a717b'), letterSpacing: 1, textTransform: 'uppercase' }}>IMEI</span>
+                          <span style={{ ...MONO(11.5, '#a6afba') }}>{e.imei}</span>
+                        </div>
+                      )}
+                      {e.cond === 'Usado' && e.bat && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5 }}>
+                          <span style={{ ...MONO(10, '#6a717b'), letterSpacing: 1, textTransform: 'uppercase' }}>Bat.</span>
+                          <BatBadge bat={e.bat} />
+                        </div>
+                      )}
+                      {e.defectos && (
+                        <div style={{ marginTop: 6, padding: '5px 8px', borderRadius: 7, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.2)', fontSize: 11.5, color: '#e6ab98' }}>⚠ {e.defectos}</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
-            {selEq && selEq.cond === 'Usado' && selEq.bat && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
-                <span style={{ ...MONO(10, '#6a717b'), letterSpacing: 1, textTransform: 'uppercase' }}>Batería</span>
-                <BatBadge bat={selEq.bat} />
+            {carrito.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: carrito.length > 1 ? 14 : 14 }}>
+                <span style={SERIF(carrito.length > 1 ? 28 : 34, '#f6f9fc')}>{fUSD(vPrecioUSD)}</span>
+                <span style={{ fontSize: 13, color: '#828a94' }}>{fARS(vPrecioARS)}</span>
               </div>
             )}
-            {selEq && selEq.defectos && (
-              <div style={{ marginTop: 8, padding: '7px 10px', borderRadius: 8, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.2)', fontSize: 12, color: '#e6ab98' }}>⚠ {selEq.defectos}</div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 14 }}>
-              <span style={SERIF(34, '#f6f9fc')}>{selEq ? fUSD(vPrecioUSD) : 'US$ —'}</span>
-              <span style={{ fontSize: 13, color: '#828a94' }}>{selEq ? fARS(vPrecioARS) : '—'}</span>
-            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 13, padding: '18px 0', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
@@ -652,10 +705,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                   <span style={{ fontSize: 13.5, color: '#828a94' }}>A financiar</span>
                   <span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500, whiteSpace: 'nowrap' }}>{fARS(aFinanciar)}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 13.5, color: '#828a94' }}>Primera vence</span>
-                  <span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500, whiteSpace: 'nowrap' }}>15 jul 2026</span>
-                </div>
               </>
             )}
           </div>
@@ -671,7 +720,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
           )}
 
           <div style={{ marginTop: 22 }}>
-            {selEq && cliente && ventaErrors.length > 0 && (
+            {carrito.length > 0 && cliente && ventaErrors.length > 0 && (
               <div style={{ marginBottom: 12, padding: '10px 13px', borderRadius: 10, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.25)' }}>
                 {ventaErrors.map((e, i) => (
                   <div key={i} style={{ fontSize: 12, color: '#e6ab98', lineHeight: 1.7 }}>· {e}</div>
@@ -679,11 +728,11 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               </div>
             )}
             {canConfirm
-              ? <button onClick={() => tieneApartado ? onConfirmApartado(buildReservaData()) : onConfirm(buildVentaData())} style={{ width: '100%', padding: 15, borderRadius: 13, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(180,200,220,0.7)' }}>
-                {tieneApartado ? 'Registrar reserva' : 'Confirmar venta'}
+              ? <button onClick={() => tieneApartado && puedeApartado ? onConfirmApartado(buildReservaData()) : onConfirm(buildVentaData())} style={{ width: '100%', padding: 15, borderRadius: 13, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(180,200,220,0.7)' }}>
+                {tieneApartado && puedeApartado ? 'Registrar reserva' : 'Confirmar venta'}
               </button>
               : <div style={{ width: '100%', padding: 15, borderRadius: 13, background: 'rgba(231,238,246,0.04)', color: '#6a717b', fontSize: 15, fontWeight: 600, textAlign: 'center' }}>
-                  {!selEq ? 'Elegí un equipo' : !cliente ? 'Elegí un cliente' : 'Corregí los errores'}
+                  {carrito.length === 0 ? 'Agregá al menos un equipo' : !cliente ? 'Elegí un cliente' : 'Corregí los errores'}
                 </div>
             }
           </div>
