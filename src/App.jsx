@@ -198,25 +198,26 @@ export default function App() {
         db.fetchCobros().then(cbs => setCobros(cbs));
       }
       // Actualizar equipos vendidos (soporta carrito multi-item via lineas)
-      const lineasVenta = ventaData.lineas && ventaData.lineas.length > 0 ? ventaData.lineas : (ventaData.equipoId ? [{ equipoId: ventaData.equipoId }] : []);
-      const vendidoIds = lineasVenta.map(l => l.equipoId).filter(Boolean);
-      for (const eid of vendidoIds) {
+      const lineasVenta = ventaData.lineas && ventaData.lineas.length > 0 ? ventaData.lineas : (ventaData.equipoId ? [{ equipoId: ventaData.equipoId, cantidad: 1 }] : []);
+      for (const l of lineasVenta) {
+        const eid = l.equipoId;
+        if (!eid) continue;
         const eq = equipos.find(e => e.id === eid);
         if (!eq) continue;
-        if (!esPhone(eq.categoria) && eq.cantidad > 1) {
-          // Accesorio con stock: descontar 1 unidad, mantener disponible
-          await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - 1 });
+        const qtySold = l.cantidad || 1;
+        if (!esPhone(eq.categoria) && eq.cantidad > qtySold) {
+          await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - qtySold });
         } else {
           await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
         }
       }
-      if (vendidoIds.length > 0) {
-        setEquipos(prev => prev.map(e => {
-          if (!vendidoIds.includes(e.id)) return e;
-          if (!esPhone(e.categoria) && e.cantidad > 1) return { ...e, cantidad: e.cantidad - 1 };
-          return { ...e, estado: 'vendido' };
-        }));
-      }
+      setEquipos(prev => prev.map(e => {
+        const l = lineasVenta.find(lv => lv.equipoId === e.id);
+        if (!l) return e;
+        const qty = l.cantidad || 1;
+        if (!esPhone(e.categoria) && e.cantidad > qty) return { ...e, cantidad: e.cantidad - qty };
+        return { ...e, estado: 'vendido' };
+      }));
       // Agregar equipo de canje al stock
       if (ventaData.canje && ventaData.canjeEquipoData) {
         const eqCanje = await db.createEquipo(ventaData.canjeEquipoData);

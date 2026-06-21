@@ -99,6 +99,24 @@ export default function VentaDetalleModal({ venta, onClose }) {
         )}
         <Row label="TC del día" value={`$${(tcV).toLocaleString('es-AR')}`} />
       </div>
+
+      {/* Garantía */}
+      {venta.garantiaUrl && (
+        <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid rgba(231,238,246,0.08)' }}>
+          <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, color: '#6a717b' }}>Garantía adjunta</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {venta.garantiaUrl.split('|').filter(Boolean).map((url, i) => {
+              const nombre = venta.garantiaNombre ? (venta.garantiaNombre.split('|')[i] || `Garantía ${i + 1}`) : `Garantía ${i + 1}`;
+              return (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: 'rgba(130,179,157,0.08)', border: '1px solid rgba(130,179,157,0.3)', color: '#82b39d', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                  ↗ {nombre}
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }
