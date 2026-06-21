@@ -34,7 +34,7 @@ function BatBadge({ bat }) {
 
 // ─── PackModal ───────────────────────────────────────────────────────────────
 
-function PackModal({ pack, onSave, onClose }) {
+function PackModal({ pack, equipos, onSave, onClose }) {
   const isEdit = !!pack;
   const [nombre, setNombre] = useState(pack?.nombre || '');
   const [items, setItems] = useState(pack?.items || [{ categoria: CATEGORIAS[0], modelo: '', esRegalo: false }]);
@@ -44,39 +44,49 @@ function PackModal({ pack, onSave, onClose }) {
   const updateItem = (i, key, val) => setItems(p => p.map((it, j) => j === i ? { ...it, [key]: val } : it));
   const canSave = nombre.trim().length > 0 && items.length > 0;
 
+  const modelosDisp = (categoria) => [...new Set(
+    (equipos || []).filter(e => e.estado === 'disponible' && e.categoria === categoria).map(e => e.modelo)
+  )];
+
   const LB = { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', color: '#6a717b', display: 'block', marginBottom: 7 };
   const SEL = { width: '100%', padding: '10px 12px', borderRadius: 9, background: '#1e2228', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 13.5, appearance: 'none' };
-  const IN  = { width: '100%', padding: '10px 12px', borderRadius: 9, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 13.5, boxSizing: 'border-box' };
 
   return (
     <Modal title={isEdit ? 'Editar pack' : 'Nuevo pack'} onClose={onClose} width={520}>
       <div style={{ marginBottom: 18 }}>
         <span style={LB}>Nombre del pack</span>
-        <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="ej. iPhone + Accesorios de regalo" style={IN} autoFocus />
+        <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="ej. iPhone + Accesorios de regalo" style={{ width: '100%', padding: '10px 12px', borderRadius: 9, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 13.5, boxSizing: 'border-box' }} autoFocus />
       </div>
       <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', color: '#6a717b', marginBottom: 10 }}>Productos que incluye</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-        {items.map((item, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 8, alignItems: 'end', padding: '12px 14px', borderRadius: 11, border: '1px solid rgba(231,238,246,0.08)', background: 'rgba(231,238,246,0.02)' }}>
-            <div>
-              <span style={LB}>Categoría</span>
-              <select value={item.categoria} onChange={e => updateItem(i, 'categoria', e.target.value)} style={SEL}>
-                {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+        {items.map((item, i) => {
+          const modelos = modelosDisp(item.categoria);
+          return (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 8, alignItems: 'end', padding: '12px 14px', borderRadius: 11, border: '1px solid rgba(231,238,246,0.08)', background: 'rgba(231,238,246,0.02)' }}>
+              <div>
+                <span style={LB}>Categoría</span>
+                <select value={item.categoria} onChange={e => { updateItem(i, 'categoria', e.target.value); updateItem(i, 'modelo', ''); }} style={SEL}>
+                  {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <span style={LB}>Modelo en stock</span>
+                <select value={item.modelo} onChange={e => updateItem(i, 'modelo', e.target.value)} style={SEL}>
+                  <option value="">— Cualquier modelo —</option>
+                  {modelos.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                {modelos.length === 0 && <div style={{ fontSize: 11, color: '#d98a76', marginTop: 4 }}>Sin stock disponible en esta categoría</div>}
+              </div>
+              <button
+                onClick={() => updateItem(i, 'esRegalo', !item.esRegalo)}
+                style={{ padding: '9px 10px', borderRadius: 8, border: `1px solid ${item.esRegalo ? 'rgba(130,179,157,0.5)' : 'rgba(231,238,246,0.12)'}`, background: item.esRegalo ? 'rgba(130,179,157,0.12)' : 'rgba(231,238,246,0.03)', color: item.esRegalo ? '#82b39d' : '#828a94', fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                {item.esRegalo ? '🎁 Regalo' : 'Con precio'}
+              </button>
+              <button onClick={() => removeItem(i)} style={{ padding: '9px 10px', background: 'none', border: '1px solid rgba(231,238,246,0.08)', borderRadius: 8, cursor: 'pointer', color: '#6a717b', fontSize: 15 }}>✕</button>
             </div>
-            <div>
-              <span style={LB}>Modelo (opcional)</span>
-              <input value={item.modelo} onChange={e => updateItem(i, 'modelo', e.target.value)} placeholder="Cualquier modelo" style={IN} />
-            </div>
-            <button
-              onClick={() => updateItem(i, 'esRegalo', !item.esRegalo)}
-              style={{ padding: '9px 10px', borderRadius: 8, border: `1px solid ${item.esRegalo ? 'rgba(130,179,157,0.5)' : 'rgba(231,238,246,0.12)'}`, background: item.esRegalo ? 'rgba(130,179,157,0.12)' : 'rgba(231,238,246,0.03)', color: item.esRegalo ? '#82b39d' : '#828a94', fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            >
-              {item.esRegalo ? '🎁 Regalo' : 'Con precio'}
-            </button>
-            <button onClick={() => removeItem(i)} style={{ padding: '9px 10px', background: 'none', border: '1px solid rgba(231,238,246,0.08)', borderRadius: 8, cursor: 'pointer', color: '#6a717b', fontSize: 15 }}>✕</button>
-          </div>
-        ))}
+          );
+        })}
         <button onClick={addItem} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 9, border: '1px dashed rgba(116,168,214,0.3)', background: 'rgba(116,168,214,0.04)', color: '#74a8d6', fontSize: 13, cursor: 'pointer' }}>
           + Agregar producto al pack
         </button>
@@ -96,7 +106,7 @@ function PackModal({ pack, onSave, onClose }) {
 
 // ─── EquipoPicker ────────────────────────────────────────────────────────────
 
-function EquipoPicker({ equipos, carrito, onAdd, onRemove, onIncrement, onDecrement }) {
+function EquipoPicker({ equipos, carrito, onAdd, onRemoveAll, onDecrement }) {
   const [q, setQ] = useState('');
   const [filtroCond, setFiltroCond] = useState('todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
@@ -129,10 +139,10 @@ function EquipoPicker({ equipos, carrito, onAdd, onRemove, onIncrement, onDecrem
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
         {filtrados.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: '#6a717b', fontSize: 13.5 }}>Sin resultados{q ? ` para "${q}"` : ''}.</div>}
         {filtrados.map(e => {
-          const cartItem = carrito.find(c => c.id === e.id);
-          const enCarrito = !!cartItem;
+          const cartSlots = carrito.filter(c => c.id === e.id);
+          const enCarrito = cartSlots.length > 0;
           const isPhone = esPhone(e.categoria);
-          const cantActual = cartItem?.cantidadVenta || 0;
+          const cantActual = cartSlots.reduce((s, c) => s + (c.cantidadVenta || 1), 0);
           const puedeMas = cantActual < e.cantidad;
           const tieneDefectos = e.defectos && e.defectos.trim().length > 0;
           return (
@@ -156,16 +166,16 @@ function EquipoPicker({ equipos, carrito, onAdd, onRemove, onIncrement, onDecrem
                   <button onClick={() => onAdd(e)} style={{ fontSize: 12, fontWeight: 600, color: '#74a8d6', background: 'rgba(116,168,214,0.08)', border: '1px solid rgba(116,168,214,0.3)', padding: '5px 10px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Agregar</button>
                 )}
                 {enCarrito && isPhone && (
-                  <button onClick={() => onRemove(e.id)} style={{ fontSize: 12, fontWeight: 600, color: '#82b39d', background: 'rgba(130,179,157,0.1)', border: '1px solid rgba(130,179,157,0.3)', padding: '5px 10px', borderRadius: 8, cursor: 'pointer' }}>✓ Quitar</button>
+                  <button onClick={() => onRemoveAll(e.id)} style={{ fontSize: 12, fontWeight: 600, color: '#82b39d', background: 'rgba(130,179,157,0.1)', border: '1px solid rgba(130,179,157,0.3)', padding: '5px 10px', borderRadius: 8, cursor: 'pointer' }}>✓ Quitar</button>
                 )}
                 {enCarrito && !isPhone && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <button onClick={() => onDecrement(e.id)} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(130,179,157,0.4)', background: 'rgba(130,179,157,0.08)', color: '#82b39d', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                       <span style={{ minWidth: 36, textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#eef2f7' }}>{cantActual}/{e.cantidad}</span>
-                      <button onClick={() => onIncrement(e.id, e.cantidad)} disabled={!puedeMas} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${puedeMas ? 'rgba(130,179,157,0.4)' : 'rgba(231,238,246,0.08)'}`, background: puedeMas ? 'rgba(130,179,157,0.08)' : 'rgba(231,238,246,0.02)', color: puedeMas ? '#82b39d' : '#4a5058', fontSize: 14, cursor: puedeMas ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                      <button onClick={() => onAdd(e)} disabled={!puedeMas} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${puedeMas ? 'rgba(130,179,157,0.4)' : 'rgba(231,238,246,0.08)'}`, background: puedeMas ? 'rgba(130,179,157,0.08)' : 'rgba(231,238,246,0.02)', color: puedeMas ? '#82b39d' : '#4a5058', fontSize: 14, cursor: puedeMas ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                     </div>
-                    <button onClick={() => onRemove(e.id)} style={{ fontSize: 11, color: '#6a717b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Quitar</button>
+                    <button onClick={() => onRemoveAll(e.id)} style={{ fontSize: 11, color: '#6a717b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Quitar todos</button>
                   </div>
                 )}
               </div>
@@ -270,21 +280,33 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   // ── Carrito helpers ──
   const addToCarrito = (eq) => {
     setCarrito(prev => {
-      const existing = prev.find(c => c.id === eq.id);
       if (esPhone(eq.categoria)) {
-        if (existing) return prev;
-        return [...prev, { ...eq, cantidadVenta: 1, esRegalo: false }];
+        if (prev.some(c => c.id === eq.id)) return prev;
+        return [...prev, { ...eq, carritoId: `${eq.id}_${Date.now()}`, cantidadVenta: 1, esRegalo: false }];
       }
-      if (existing) {
-        return prev.map(c => c.id === eq.id ? { ...c, cantidadVenta: Math.min(c.cantidadVenta + 1, eq.cantidad) } : c);
+      const totalQty = prev.filter(c => c.id === eq.id).reduce((s, c) => s + c.cantidadVenta, 0);
+      if (totalQty >= eq.cantidad) return prev;
+      // buscar slot sin regalo para incrementar; si todos son regalo → nuevo slot separado
+      const nonRegaloSlot = prev.find(c => c.id === eq.id && !c.esRegalo);
+      if (nonRegaloSlot) {
+        return prev.map(c => c.carritoId === nonRegaloSlot.carritoId ? { ...c, cantidadVenta: c.cantidadVenta + 1 } : c);
       }
-      return [...prev, { ...eq, cantidadVenta: 1, esRegalo: false }];
+      return [...prev, { ...eq, carritoId: `${eq.id}_${Date.now()}`, cantidadVenta: 1, esRegalo: false }];
     });
   };
-  const removeFromCarrito = (id) => setCarrito(prev => prev.filter(c => c.id !== id));
-  const incrementCarrito = (id, maxQty) => setCarrito(prev => prev.map(c => c.id === id ? { ...c, cantidadVenta: Math.min(c.cantidadVenta + 1, maxQty) } : c));
-  const decrementCarrito = (id) => setCarrito(prev => prev.map(c => c.id === id ? { ...c, cantidadVenta: Math.max(1, c.cantidadVenta - 1) } : c));
-  const toggleRegalo = (id) => setCarrito(prev => prev.map(c => c.id === id ? { ...c, esRegalo: !c.esRegalo } : c));
+  const removeFromCarrito = (carritoId) => setCarrito(prev => prev.filter(c => c.carritoId !== carritoId));
+  const removeAllFromCarrito = (equipoId) => setCarrito(prev => prev.filter(c => c.id !== equipoId));
+  const decrementCarrito = (equipoId) => {
+    setCarrito(prev => {
+      const lastSlot = [...prev].reverse().find(c => c.id === equipoId);
+      if (!lastSlot) return prev;
+      if (lastSlot.cantidadVenta > 1) return prev.map(c => c.carritoId === lastSlot.carritoId ? { ...c, cantidadVenta: c.cantidadVenta - 1 } : c);
+      return prev.filter(c => c.carritoId !== lastSlot.carritoId);
+    });
+  };
+  const toggleRegalo = (carritoId) => {
+    setCarrito(prev => prev.map(c => c.carritoId === carritoId ? { ...c, esRegalo: !c.esRegalo } : c));
+  };
 
   const applyPack = (pack) => {
     const toAdd = [];
@@ -297,7 +319,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
         !carrito.some(c => c.id === e.id) &&
         !toAdd.some(c => c.id === e.id)
       );
-      if (match) toAdd.push({ ...match, cantidadVenta: 1, esRegalo: item.esRegalo });
+      if (match) toAdd.push({ ...match, carritoId: `${match.id}_pack_${Date.now()}_${i}`, cantidadVenta: 1, esRegalo: item.esRegalo });
       else notFound.push(item.categoria);
     }
     if (toAdd.length > 0) setCarrito(prev => [...prev, ...toAdd]);
@@ -366,6 +388,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     costo: e.costo || null,
     cantidad: e.cantidadVenta || 1,
     esRegalo: e.esRegalo || false,
+    garantiaUrl: e.garantiaUrl || null,
+    garantiaNombre: e.garantiaNombre || null,
   }));
 
   const buildVentaData = () => {
@@ -404,8 +428,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   return (
     <div>
       {nuevoClienteModal && <NuevoClienteModal nombre={clienteSearch} clientes={clientes} onSave={handleNuevoCliente} onClose={() => setNuevoClienteModal(false)} />}
-      {packModal?.mode === 'create' && <PackModal onSave={p => { savePacksState([...packs, p]); setPackModal(null); }} onClose={() => setPackModal(null)} />}
-      {packModal?.mode === 'edit'   && <PackModal pack={packModal.pack} onSave={p => { savePacksState(packs.map(x => x.id === p.id ? p : x)); setPackModal(null); }} onClose={() => setPackModal(null)} />}
+      {packModal?.mode === 'create' && <PackModal equipos={equipos} onSave={p => { savePacksState([...packs, p]); setPackModal(null); }} onClose={() => setPackModal(null)} />}
+      {packModal?.mode === 'edit'   && <PackModal pack={packModal.pack} equipos={equipos} onSave={p => { savePacksState(packs.map(x => x.id === p.id ? p : x)); setPackModal(null); }} onClose={() => setPackModal(null)} />}
 
       <div style={{ marginBottom: 28 }}>
         <div style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 9 }}>Nueva operación</div>
@@ -431,7 +455,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                   {carrito.map(e => {
                     const precioItem = e.esRegalo ? 0 : e.usd * (e.cantidadVenta || 1);
                     return (
-                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div key={e.carritoId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <span style={{ fontSize: 13.5, fontWeight: 500, color: '#eef2f7' }}>
                             {e.modelo}{e.cap ? ` · ${e.cap}` : ''}{e.color ? ` · ${e.color}` : ''}
@@ -442,10 +466,10 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                           ? <span style={{ fontSize: 12, color: '#82b39d', padding: '2px 8px', borderRadius: 5, background: 'rgba(130,179,157,0.12)', border: '1px solid rgba(130,179,157,0.3)', whiteSpace: 'nowrap' }}>🎁 Regalo</span>
                           : <span style={{ fontSize: 13.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(precioItem)}</span>
                         }
-                        <button onClick={() => toggleRegalo(e.id)} title={e.esRegalo ? 'Quitar regalo' : 'Marcar como regalo ($0)'} style={{ padding: '3px 8px', borderRadius: 6, background: 'none', border: `1px solid ${e.esRegalo ? 'rgba(130,179,157,0.4)' : 'rgba(231,238,246,0.1)'}`, cursor: 'pointer', color: e.esRegalo ? '#82b39d' : '#6a717b', fontSize: 12 }}>
+                        <button onClick={() => toggleRegalo(e.carritoId)} title={e.esRegalo ? 'Quitar regalo' : 'Marcar como regalo ($0)'} style={{ padding: '3px 8px', borderRadius: 6, background: 'none', border: `1px solid ${e.esRegalo ? 'rgba(130,179,157,0.4)' : 'rgba(231,238,246,0.1)'}`, cursor: 'pointer', color: e.esRegalo ? '#82b39d' : '#6a717b', fontSize: 12 }}>
                           {e.esRegalo ? '✓ Regalo' : '🎁'}
                         </button>
-                        <button onClick={() => removeFromCarrito(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6a717b', fontSize: 14, padding: '2px 4px', lineHeight: 1 }}>✕</button>
+                        <button onClick={() => removeFromCarrito(e.carritoId)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6a717b', fontSize: 14, padding: '2px 4px', lineHeight: 1 }}>✕</button>
                       </div>
                     );
                   })}
@@ -479,7 +503,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               )}
             </div>
 
-            <EquipoPicker equipos={equipos} carrito={carrito} onAdd={addToCarrito} onRemove={removeFromCarrito} onIncrement={incrementCarrito} onDecrement={decrementCarrito} />
+            <EquipoPicker equipos={equipos} carrito={carrito} onAdd={addToCarrito} onRemoveAll={removeAllFromCarrito} onDecrement={decrementCarrito} />
           </div>
 
           {/* Step 02 – Cliente */}

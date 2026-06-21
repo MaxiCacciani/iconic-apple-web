@@ -61,10 +61,26 @@ export default function VentaDetalleModal({ venta, onClose }) {
                     <span style={{ ...MONO(12, '#a6afba'), letterSpacing: 0.2 }}>{l.imei}</span>
                   </div>
                 )}
+                {l.garantiaUrl && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {l.garantiaUrl.split('|').filter(Boolean).map((url, j) => {
+                      const gNombre = l.garantiaNombre ? (l.garantiaNombre.split('|')[j] || `Garantía ${j + 1}`) : `Garantía ${j + 1}`;
+                      return (
+                        <a key={j} href={url} target="_blank" rel="noopener noreferrer"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 7, background: 'rgba(130,179,157,0.08)', border: '1px solid rgba(130,179,157,0.25)', color: '#82b39d', fontSize: 12, textDecoration: 'none' }}>
+                          ↗ {gNombre}
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {fUSD(l.usd || 0)}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                <span style={{ fontSize: 14.5, fontWeight: 600, color: l.esRegalo ? '#82b39d' : '#eef2f7', whiteSpace: 'nowrap' }}>
+                  {l.esRegalo ? '🎁 Regalo' : fUSD(l.usd || 0)}
+                </span>
+                {l.cantidad > 1 && !l.esRegalo && <span style={{ fontSize: 11.5, color: '#828a94' }}>x{l.cantidad} uds.</span>}
+              </div>
             </div>
           );
         })}
