@@ -311,23 +311,37 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const applyPack = (pack) => {
     const toAdd = [];
     const notFound = [];
+    let idx = 0;
     for (const item of pack.items) {
-      const match = equipos.find(e =>
-        e.estado === 'disponible' &&
-        e.categoria === item.categoria &&
-        (!item.modelo || e.modelo.toLowerCase().includes(item.modelo.toLowerCase())) &&
-        !carrito.some(c => c.id === e.id) &&
-        !toAdd.some(c => c.id === e.id)
-      );
-      if (match) toAdd.push({ ...match, carritoId: `${match.id}_pack_${Date.now()}_${i}`, cantidadVenta: 1, esRegalo: item.esRegalo });
-      else notFound.push(item.categoria);
+      const isItemPhone = esPhone(item.categoria);
+      const match = equipos.find(e => {
+        if (e.estado !== 'disponible') return false;
+        if (e.categoria !== item.categoria) return false;
+        if (item.modelo && !e.modelo.toLowerCase().includes(item.modelo.toLowerCase())) return false;
+        // Para teléfonos: no agregar si ya está en el carrito
+        if (isItemPhone && carrito.some(c => c.id === e.id)) return false;
+        // Para accesorios: verificar que no superamos el stock total
+        if (!isItemPhone) {
+          const yaEnCarrito = carrito.filter(c => c.id === e.id).reduce((s, c) => s + c.cantidadVenta, 0);
+          const yaEnToAdd = toAdd.filter(a => a.id === e.id).reduce((s, a) => s + a.cantidadVenta, 0);
+          if (yaEnCarrito + yaEnToAdd >= e.cantidad) return false;
+        }
+        // Evitar duplicar el mismo equipo dos veces dentro del mismo pack
+        if (isItemPhone && toAdd.some(a => a.id === e.id)) return false;
+        return true;
+      });
+      if (match) {
+        toAdd.push({ ...match, carritoId: `${match.id}_pack_${Date.now()}_${idx++}`, cantidadVenta: 1, esRegalo: item.esRegalo });
+      } else {
+        notFound.push(item.categoria + (item.modelo ? ` ${item.modelo}` : ''));
+      }
     }
     if (toAdd.length > 0) setCarrito(prev => [...prev, ...toAdd]);
     const msg = toAdd.length > 0
-      ? `✓ ${toAdd.length} producto${toAdd.length > 1 ? 's' : ''} agregado${toAdd.length > 1 ? 's' : ''}${notFound.length > 0 ? ` (sin stock: ${notFound.join(', ')})` : ''}`
-      : `Sin productos disponibles (${notFound.join(', ')})`;
+      ? `✓ ${toAdd.length} ítem${toAdd.length > 1 ? 's' : ''} agregado${toAdd.length > 1 ? 's' : ''}${notFound.length > 0 ? ` · sin stock: ${notFound.join(', ')}` : ''}`
+      : `Sin coincidencias en stock (${notFound.join(', ')})`;
     setPackMsg(msg);
-    setTimeout(() => setPackMsg(''), 4000);
+    setTimeout(() => setPackMsg(''), 5000);
   };
 
   const savePacksState = (newPacks) => { setPacks(newPacks); savePacks(newPacks); };
