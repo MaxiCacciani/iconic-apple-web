@@ -249,6 +249,39 @@ function CanjeCombo({ value, onChange, options, placeholder }) {
   );
 }
 
+// ─── VendedorStep ────────────────────────────────────────────────────────────
+
+function VendedorStep({ vendedorNumero, onChangeNumero }) {
+  const vendedores = (() => {
+    try { return JSON.parse(localStorage.getItem('iconic_vendedores') || '[]'); }
+    catch { return []; }
+  })();
+  const num = parseInt(vendedorNumero, 10);
+  const vendedor = vendedores.find(v => v.numero === num);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 13, border: '1px solid rgba(231,238,246,0.08)', background: 'rgba(231,238,246,0.02)' }}>
+      <div>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', color: '#6a717b', marginBottom: 7 }}>Nº vendedor</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 9, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', width: 90 }}>
+          <input
+            type="number" min="1" value={vendedorNumero}
+            onChange={e => onChangeNumero(e.target.value)}
+            placeholder="—"
+            style={{ width: '100%', background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 600, padding: 0, textAlign: 'center' }}
+          />
+        </div>
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', color: '#6a717b', marginBottom: 7 }}>Nombre</div>
+        <div style={{ padding: '10px 0', fontSize: 14, color: vendedor ? '#eef2f7' : '#4a5058', fontStyle: vendedor ? 'normal' : 'italic' }}>
+          {vendedor ? vendedor.nombre : vendedorNumero ? 'Vendedor no registrado' : 'Sin asignar'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Venta (main) ────────────────────────────────────────────────────────────
 
 export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApartado, onAddCliente }) {
@@ -276,6 +309,12 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [packs, setPacks] = useState(loadPacks);
   const [packModal, setPackModal] = useState(null);
   const [packMsg, setPackMsg] = useState('');
+  const [vendedorNumero, setVendedorNumero] = useState(() => {
+    try {
+      const vs = JSON.parse(localStorage.getItem('iconic_vendedores') || '[]');
+      return vs.length > 0 ? String(vs[vs.length - 1].numero) : '';
+    } catch { return ''; }
+  });
 
   // ── Carrito helpers ──
   const addToCarrito = (eq) => {
@@ -307,6 +346,11 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const toggleRegalo = (carritoId) => {
     setCarrito(prev => prev.map(c => c.carritoId === carritoId ? { ...c, esRegalo: !c.esRegalo } : c));
   };
+  const updatePrecio = (carritoId, val) => {
+    const num = parseFloat(val);
+    setCarrito(prev => prev.map(c => c.carritoId === carritoId ? { ...c, usdVenta: isNaN(num) || val === '' ? null : Math.max(0, num) } : c));
+  };
+  const effPrecio = (item) => item.usdVenta !== null && item.usdVenta !== undefined ? item.usdVenta : item.usd;
 
   const applyPack = (pack) => {
     const toAdd = [];
@@ -350,7 +394,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   // ── Derivados ──
   const primerEq = carrito[0] || null;
   const totalUnidades = carrito.reduce((a, b) => a + (b.cantidadVenta || 1), 0);
-  const vPrecioUSD = carrito.reduce((a, b) => a + (b.esRegalo ? 0 : b.usd * (b.cantidadVenta || 1)), 0);
+  const vPrecioUSD = carrito.reduce((a, b) => a + (b.esRegalo ? 0 : effPrecio(b) * (b.cantidadVenta || 1)), 0);
   const vPrecioARS = vPrecioUSD * tc;
   const antNum = parseInt(anticipo || '0', 10) || 0;
   const seniaNum = parseInt(seniaContado || '0', 10) || 0;
@@ -398,7 +442,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     equipo: [e.modelo, e.cap, e.color].filter(Boolean).join(' · '),
     imei: e.imei || '',
     categoria: e.categoria,
-    usd: e.esRegalo ? 0 : e.usd,
+    usd: e.esRegalo ? 0 : effPrecio(e),
     costo: e.costo || null,
     cantidad: e.cantidadVenta || 1,
     esRegalo: e.esRegalo || false,
@@ -418,6 +462,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
       cuotaMonto: esCuotas ? cuotaMonto : null, canje,
       canjeEquipo: canje ? canjeEquipoLabel : null,
       canjeValor: canje ? canjeNum : null, lineas,
+      vendedorNumero: vendedorNumero ? parseInt(vendedorNumero, 10) : null,
       canjeEquipoData: canje && canjeModelo ? {
         categoria: canjeCategoria, modelo: canjeModelo, cap: canjeCap || null,
         color: canjeColor || null, cond: canjeCond,
@@ -478,7 +523,20 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                         </div>
                         {e.esRegalo
                           ? <span style={{ fontSize: 12, color: '#82b39d', padding: '2px 8px', borderRadius: 5, background: 'rgba(130,179,157,0.12)', border: '1px solid rgba(130,179,157,0.3)', whiteSpace: 'nowrap' }}>🎁 Regalo</span>
-                          : <span style={{ fontSize: 13.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(precioItem)}</span>
+                          : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px 3px 10px', borderRadius: 7, background: 'rgba(231,238,246,0.04)', border: `1px solid ${e.usdVenta !== null && e.usdVenta !== undefined && e.usdVenta < (e.costo || Infinity) ? 'rgba(217,138,118,0.5)' : 'rgba(231,238,246,0.1)'}` }}>
+                                <span style={{ fontSize: 11, color: '#6a717b' }}>US$</span>
+                                <input
+                                  type="number" min="0" step="0.01"
+                                  value={e.usdVenta !== null && e.usdVenta !== undefined ? e.usdVenta : e.usd}
+                                  onChange={ev => updatePrecio(e.carritoId, ev.target.value)}
+                                  style={{ width: 64, background: 'none', border: 'none', color: '#eef2f7', fontSize: 13.5, fontWeight: 600, textAlign: 'right', padding: 0 }}
+                                />
+                              </div>
+                              {e.costo && effPrecio(e) < e.costo && (
+                                <span style={{ fontSize: 10.5, color: '#d98a76' }}>⚠ bajo costo ({fUSD(e.costo)})</span>
+                              )}
+                            </div>
                         }
                         <button onClick={() => toggleRegalo(e.carritoId)} title={e.esRegalo ? 'Quitar regalo' : 'Marcar como regalo ($0)'} style={{ padding: '3px 8px', borderRadius: 6, background: 'none', border: `1px solid ${e.esRegalo ? 'rgba(130,179,157,0.4)' : 'rgba(231,238,246,0.1)'}`, cursor: 'pointer', color: e.esRegalo ? '#82b39d' : '#6a717b', fontSize: 12 }}>
                           {e.esRegalo ? '✓ Regalo' : '🎁'}
@@ -708,6 +766,15 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               })}
             </div>
           </div>
+
+          {/* Step 05 – Vendedor */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 15 }}>
+              <span style={stepLabel()}>05</span>
+              <span style={{ fontSize: 15.5, fontWeight: 600 }}>Vendedor</span>
+            </div>
+            <VendedorStep vendedorNumero={vendedorNumero} onChangeNumero={setVendedorNumero} />
+          </div>
         </div>
 
         {/* Comprobante (derecha) */}
@@ -724,7 +791,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {carrito.map((e, i) => {
                   const isPhone = esPhone(e.categoria);
-                  const precioMostrar = e.esRegalo ? 0 : e.usd * (e.cantidadVenta || 1);
+                  const precioMostrar = e.esRegalo ? 0 : effPrecio(e) * (e.cantidadVenta || 1);
                   return (
                     <div key={e.id} style={{ paddingBottom: carrito.length > 1 && i < carrito.length - 1 ? 12 : 0, borderBottom: carrito.length > 1 && i < carrito.length - 1 ? '1px solid rgba(231,238,246,0.06)' : 'none' }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>

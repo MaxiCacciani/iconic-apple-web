@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { fARS, fUSD, TC as TC_ACTUAL } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
@@ -58,6 +58,57 @@ import { uploadGarantia, deleteGarantia } from '../lib/db.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
+
+const VEND_KEY = 'iconic_vendedores';
+function loadVendedores() {
+  try { return JSON.parse(localStorage.getItem(VEND_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function VendedorModal({ vendedores, onSave, onClose }) {
+  const nextNum = vendedores.length > 0 ? Math.max(...vendedores.map(v => v.numero)) + 1 : 1;
+  const [numero, setNumero] = useState(String(nextNum));
+  const [nombre, setNombre] = useState('');
+  const numInt = parseInt(numero, 10);
+  const yaExiste = vendedores.some(v => v.numero === numInt);
+  const canSave = nombre.trim().length > 0 && numInt > 0;
+  const ML = { fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 7, color: '#6a717b', display: 'block' };
+  const IN = { width: '100%', padding: '11px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14, boxSizing: 'border-box' };
+  return (
+    <Modal title="Registrar vendedor" onClose={onClose} width={420}>
+      {vendedores.length > 0 && (
+        <div style={{ marginBottom: 18, padding: '10px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.03)', border: '1px solid rgba(231,238,246,0.07)' }}>
+          <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>Vendedores registrados</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {[...vendedores].sort((a,b) => a.numero - b.numero).map(v => (
+              <div key={v.numero} style={{ display: 'flex', gap: 10, fontSize: 13, color: '#a6afba' }}>
+                <span style={{ ...MONO(12, '#74a8d6'), minWidth: 28 }}>#{v.numero}</span>
+                <span>{v.nombre}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 12, marginBottom: 18 }}>
+        <div>
+          <span style={ML}>Nº vendedor</span>
+          <input type="number" min="1" value={numero} onChange={e => setNumero(e.target.value)} style={IN} autoFocus />
+          {yaExiste && <div style={{ fontSize: 11, color: '#d98a76', marginTop: 4 }}>Ya existe, va a reemplazarlo</div>}
+        </div>
+        <div>
+          <span style={ML}>Nombre</span>
+          <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre del vendedor" style={IN} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>Cancelar</button>
+        <button onClick={() => canSave && onSave({ numero: numInt, nombre: nombre.trim() })} style={{ flex: 2, padding: 12, borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: canSave ? 'linear-gradient(160deg, #eef2f6, #b7c3ce)' : 'rgba(231,238,246,0.05)', color: canSave ? '#14171c' : '#6a717b', fontSize: 14, fontWeight: 600, cursor: canSave ? 'pointer' : 'default', fontFamily: "'Hanken Grotesk', sans-serif" }}>
+          {yaExiste ? 'Actualizar' : 'Registrar'}
+        </button>
+      </div>
+    </Modal>
+  );
+}
 
 const METODO_COLORS = {
   'Transferencia': { bg: 'rgba(116,168,214,0.1)',  color: '#74a8d6' },
@@ -149,8 +200,17 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
   const [deletingVenta, setDeletingVenta] = useState(null);
   const [editingCosto, setEditingCosto] = useState(null);
   const [detalleVenta, setDetalleVenta] = useState(null);
+  const [vendedores, setVendedores] = useState(loadVendedores);
+  const [vendedorModal, setVendedorModal] = useState(false);
   const fileInputRef = useRef(null);
   const uploadingForRef = useRef(null);
+
+  const saveVendedor = (v) => {
+    const updated = [...vendedores.filter(x => x.numero !== v.numero), v].sort((a,b) => a.numero - b.numero);
+    setVendedores(updated);
+    localStorage.setItem(VEND_KEY, JSON.stringify(updated));
+    setVendedorModal(false);
+  };
 
   const sorted = [...ventas].sort((a, b) => b.fechaNum - a.fechaNum);
 
@@ -252,6 +312,7 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
       {ventaDeleting && <DeleteVentaModal   venta={ventaDeleting} onClose={() => setDeletingVenta(null)}  onConfirm={(id) => { onDeleteVenta(id); setDeletingVenta(null); }} />}
       {ventaEditing  && <EditCostoModal     venta={ventaEditing}  onClose={() => setEditingCosto(null)}   onSave={(id, c) => { onUpdateVenta(id, { costo: c }); setEditingCosto(null); }} />}
       {detalleVenta  && <VentaDetalleModal  venta={detalleVenta}  onClose={() => setDetalleVenta(null)} />}
+      {vendedorModal && <VendedorModal vendedores={vendedores} onSave={saveVendedor} onClose={() => setVendedorModal(false)} />}
 
       {/* Hidden file input for warranty upload */}
       <input
@@ -271,7 +332,12 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
             Historial de <span style={SERIF(33, '#9ec6ec')}>ventas</span>
           </h1>
         </div>
-        <div style={{ ...MONO(12), color: '#6a717b' }}>{ventas.length} registros en total</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ ...MONO(12), color: '#6a717b' }}>{ventas.length} registros en total</span>
+          <button onClick={() => setVendedorModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(116,168,214,0.3)', background: 'rgba(116,168,214,0.06)', color: '#74a8d6', fontSize: 13, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>
+            + Vendedor
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -357,6 +423,7 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
         const tcVenta = v.tc || TC_ACTUAL;
         const ganancia = v.costo ? (v.usd - v.costo) : null;
         const margen = v.costo && v.costo > 0 ? Math.round(((v.usd - v.costo) / v.costo) * 100) : null;
+        const vendedor = v.vendedorNumero ? vendedores.find(vd => vd.numero === v.vendedorNumero) : null;
         const tieneGarantia = !!v.garantiaUrl;
         const esMulti = v.lineas && v.lineas.length > 1;
         return (
@@ -384,7 +451,15 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
             </div>
 
             {/* Cliente */}
-            <div style={{ fontSize: 13.5, color: '#a6afba' }}>{v.cliente}</div>
+            <div>
+              <div style={{ fontSize: 13.5, color: '#a6afba' }}>{v.cliente}</div>
+              {v.vendedorNumero && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 4, padding: '1px 7px', borderRadius: 5, background: 'rgba(155,147,214,0.1)', border: '1px solid rgba(155,147,214,0.25)' }}>
+                  <span style={{ ...MONO(10, '#9b93d6') }}>#{v.vendedorNumero}</span>
+                  {vendedor && <span style={{ fontSize: 11, color: '#9b93d6' }}>{vendedor.nombre}</span>}
+                </div>
+              )}
+            </div>
 
             {/* Modalidad */}
             <div>

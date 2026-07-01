@@ -80,6 +80,7 @@ function rowToVenta(r) {
     garantiaNombre: r.garantia_nombre || null,
     garantiaVence,
     lineas: r.lineas || null,
+    vendedorNumero: r.vendedor_numero ?? null,
   };
 }
 
@@ -183,6 +184,7 @@ function ventaToRow(v) {
     garantia_url: v.garantiaUrl || null,
     garantia_nombre: v.garantiaNombre || null,
     lineas: v.lineas || null,
+    vendedor_numero: v.vendedorNumero ?? null,
   };
 }
 
