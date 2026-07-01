@@ -1,7 +1,12 @@
+import { useRef } from 'react';
+
 export default function Modal({ title, onClose, children, width = 560 }) {
+  const mouseDownOnBackdrop = useRef(false);
+
   return (
     <div
-      onClick={onClose}
+      onMouseDown={e => { mouseDownOnBackdrop.current = e.target === e.currentTarget; }}
+      onMouseUp={e => { if (mouseDownOnBackdrop.current && e.target === e.currentTarget) onClose(); mouseDownOnBackdrop.current = false; }}
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
         background: 'rgba(10,12,15,0.78)', backdropFilter: 'blur(6px)',
@@ -10,7 +15,6 @@ export default function Modal({ title, onClose, children, width = 560 }) {
       }}
     >
       <div
-        onClick={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: width, maxHeight: '90vh', overflowY: 'auto',
           background: '#181b20', borderRadius: 20,
@@ -18,7 +22,6 @@ export default function Modal({ title, onClose, children, width = 560 }) {
           boxShadow: '0 32px 80px -16px rgba(0,0,0,0.8)',
         }}
       >
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '22px 28px 0' }}>
           <span style={{ fontSize: 18, fontWeight: 600, color: '#eef2f7' }}>{title}</span>
           <button
