@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase.js';
 import * as db from './lib/db.js';
 import { TC as TC_DEFAULT, esPhone } from './data/data.js';
@@ -14,8 +15,10 @@ import Clientes from './screens/Clientes.jsx';
 import Ventas from './screens/Ventas.jsx';
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [session, setSession]   = useState(undefined);
-  const [screen, setScreen]     = useState('resumen');
+  const screen = location.pathname.replace('/', '') || 'resumen';
   const [toast, setToast]       = useState(null);
   const [equipos, setEquipos]   = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -67,7 +70,7 @@ export default function App() {
       .finally(() => setLoading(false));
   }, [session]);
 
-  const go = (s) => setScreen(s);
+  const go = (s) => navigate('/' + s);
 
   const showToast = (msg) => {
     setToast(msg);
