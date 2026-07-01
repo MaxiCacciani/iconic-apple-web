@@ -47,10 +47,11 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Carga inicial
+  // Carga inicial — depende del userId para no volver a cargar en token refresh
+  const userId = session?.user?.id;
   useEffect(() => {
     if (session === undefined) return;
-    if (!session) { setLoading(false); return; }
+    if (!session || !userId) { setLoading(false); return; }
     setLoading(true);
     Promise.all([
       db.fetchEquipos(),
@@ -68,7 +69,8 @@ export default function App() {
       })
       .catch(err => showToast('Error al cargar datos: ' + err.message))
       .finally(() => setLoading(false));
-  }, [session]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const go = (s) => navigate('/' + s);
 
