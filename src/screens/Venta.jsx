@@ -310,11 +310,35 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [packModal, setPackModal] = useState(null);
   const [packMsg, setPackMsg] = useState('');
   const [vendedorNumero, setVendedorNumero] = useState(() => {
+
     try {
       const vs = JSON.parse(localStorage.getItem('iconic_vendedores') || '[]');
       return vs.length > 0 ? String(vs[vs.length - 1].numero) : '';
     } catch { return ''; }
   });
+
+  const resetForm = () => {
+    setCarrito([]);
+    setCuotas(6);
+    setCuotasCustom(false);
+    setAnticipo('');
+    setMetodo('Transferencia');
+    setCliente('');
+    setClienteId(null);
+    setClienteSearch('');
+    setTieneApartado(false);
+    setSeniaContado('');
+    setCanje(false);
+    setCanjeCategoria('iPhone');
+    setCanjeModelo('');
+    setCanjeCap('');
+    setCanjeColor('');
+    setCanjeCond('Usado');
+    setCanjeImei('');
+    setCanjeBat('');
+    setCanjeValor('');
+    setPackMsg('');
+  };
 
   // ── Carrito helpers ──
   const addToCarrito = (eq) => {
@@ -878,7 +902,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               </div>
             )}
             {canConfirm
-              ? <button onClick={() => tieneApartado && puedeApartado ? onConfirmApartado(buildReservaData()) : onConfirm(buildVentaData())} style={{ width: '100%', padding: 15, borderRadius: 13, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(180,200,220,0.7)' }}>
+              ? <button onClick={() => { if (tieneApartado && puedeApartado) { onConfirmApartado(buildReservaData()); resetForm(); } else { onConfirm(buildVentaData()); resetForm(); } }} style={{ width: '100%', padding: 15, borderRadius: 13, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(180,200,220,0.7)' }}>
                 {tieneApartado && puedeApartado ? 'Registrar reserva' : 'Confirmar venta'}
               </button>
               : <div style={{ width: '100%', padding: 15, borderRadius: 13, background: 'rgba(231,238,246,0.04)', color: '#6a717b', fontSize: 15, fontWeight: 600, textAlign: 'center' }}>

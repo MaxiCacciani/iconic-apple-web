@@ -48,6 +48,20 @@ function rowToEquipo(r) {
   };
 }
 
+const METODO_NORM = {
+  'transferencia': 'Transferencia',
+  'efectivo':      'Efectivo',
+  'debito':        'Débito',
+  'débito':        'Débito',
+  'credito':       'Crédito',
+  'crédito':       'Crédito',
+  'tarjeta':       'Crédito',
+};
+const normMetodo = (m) => {
+  if (!m) return '';
+  return METODO_NORM[m.toLowerCase()] ?? m;
+};
+
 function rowToVenta(r) {
   // garantia_vence: usa la columna si existe, si no la calcula como 1 año desde la fecha de venta
   let garantiaVence = r.garantia_vence || null;
@@ -71,7 +85,7 @@ function rowToVenta(r) {
     modalidad: r.modalidad,
     cuotas: r.cuotas ?? null,
     anticipo: r.anticipo ?? null,
-    metodo: r.metodo || '',
+    metodo: normMetodo(r.metodo),
     cuotaMonto: r.cuota_monto ?? null,
     canje: r.canje || false,
     canjeEquipo: r.canje_equipo || null,
@@ -396,23 +410,30 @@ export async function updateCobroEstado(id, estado) {
 }
 
 export async function generateCobros(ventaId, ventaData) {
-  if (!ventaData.cuotas || !ventaData.cuotaMonto) return;
+  if (!ventaData.cuotas || !ventaData.cuotaMonto) return [];
   const today = localDateISO();
-  const rows = [];
-  for (let i = 1; i <= ventaData.cuotas; i++) {
-    rows.push({
-      venta_id: ventaId,
-      cliente_nombre: ventaData.cliente,
-      equipo_label: ventaData.equipo,
-      monto: ventaData.cuotaMonto,
-      fecha: addMonthsISO(today, i),
-      numero_cuota: i,
-      total_cuotas: ventaData.cuotas,
-      estado: 'pendiente',
-    });
+  const base = (i) => ({
+    venta_id: ventaId,
+    cliente_nombre: ventaData.cliente,
+    equipo_label: ventaData.equipo,
+    monto: ventaData.cuotaMonto,
+    fecha: addMonthsISO(today, i),
+    estado: 'pendiente',
+  });
+  const rows = Array.from({ length: ventaData.cuotas }, (_, i) => ({
+    ...base(i + 1),
+    numero_cuota: i + 1,
+    total_cuotas: ventaData.cuotas,
+  }));
+
+  let { data, error } = await supabase.from('cobros').insert(rows).select();
+  if (error?.message?.includes('numero_cuota') || error?.message?.includes('total_cuotas')) {
+    // columnas opcionales aún no migradas — insertar sin ellas
+    const rowsBase = Array.from({ length: ventaData.cuotas }, (_, i) => base(i + 1));
+    ({ data, error } = await supabase.from('cobros').insert(rowsBase).select());
   }
-  const { error } = await supabase.from('cobros').insert(rows);
   if (error) throw error;
+  return (data || []).map(rowToCobro);
 }
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
