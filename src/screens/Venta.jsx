@@ -446,12 +446,12 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const vPrecioARS = vPrecioUSD * tc;
   const antNum = parseInt(anticipo || '0', 10) || 0;
   const seniaNum = parseInt(seniaContado || '0', 10) || 0;
-  const canjeNum = parseInt(canjeValor || '0', 10) || 0;
+  const canjeNum = parseFloat(canjeValor || '0') || 0;  // USD
   const esCuotas = modalidad === 'cuotas';
   const aFinanciar = Math.max(0, vPrecioARS - antNum);
   const cuotaMonto = esCuotas && cuotas ? Math.round(aFinanciar / cuotas) : 0;
   const saldoContado = Math.max(0, vPrecioARS - seniaNum);
-  const saldoTrasCanje = Math.max(0, vPrecioARS - canjeNum);
+  const saldoTrasCanje = Math.max(0, vPrecioARS - canjeNum * tc);
   const canjeIsPhone = esPhone(canjeCategoria);
   const canjeEquipoLabel = [canjeModelo, canjeCap, canjeColor].filter(Boolean).join(' · ');
   const puedeApartado = carrito.length <= 1;
@@ -465,7 +465,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     }
     if (!esCuotas && tieneApartado) { const es = validateSenia(seniaContado, vPrecioARS); if (es) e.push(es); }
     if (canje) {
-      const ev = validateCanjeValor(canjeValor, vPrecioARS); if (ev) e.push(ev);
+      const ev = validateCanjeValor(canjeValor, vPrecioUSD); if (ev) e.push(ev);
       if (canjeIsPhone && canjeModelo) {
         const ei = validateIMEI(canjeImei, false); if (ei) e.push(`IMEI canje: ${ei}`);
         else if (canjeImei && equipos.some(eq => eq.imei && eq.imei === canjeImei && eq.estado !== 'vendido')) {
@@ -518,7 +518,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
         categoria: canjeCategoria, modelo: canjeModelo, cap: canjeCap || null,
         color: canjeColor || null, cond: canjeCond,
         bat: canjeBat ? parseInt(canjeBat, 10) : null, imei: canjeImei || '',
-        defectos: '', usd: Math.round(canjeNum / tc), costo: Math.round(canjeNum / tc),
+        defectos: '', usd: canjeNum, costo: canjeNum,
         proveedor: 'Plan canje', estado: 'disponible', cantidad: 1,
       } : null,
     };
@@ -774,16 +774,16 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                     <div><span style={CANJE_LB}>Batería (%)</span><input type="text" inputMode="numeric" value={canjeBat} onChange={e => setCanjeBat(e.target.value.replace(/[^0-9]/g,''))} placeholder="ej. 87" style={CANJE_IN} /></div>
                   </div>
                 )}
-                <div><span style={CANJE_LB}>Valor del equipo (ARS) — será el costo en stock</span>
+                <div><span style={CANJE_LB}>Valor del equipo (USD) — será el costo en stock</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)' }}>
-                    <span style={{ color: '#828a94', fontSize: 15 }}>$</span>
-                    <input type="text" inputMode="numeric" value={canjeValor} onChange={e => setCanjeValor(e.target.value.replace(/[^0-9]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
+                    <span style={{ color: '#828a94', fontSize: 15 }}>US$</span>
+                    <input type="text" inputMode="decimal" value={canjeValor} onChange={e => setCanjeValor(e.target.value.replace(/[^0-9.]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
                   </div>
                 </div>
                 {canjeNum > 0 && vPrecioARS > 0 && (
                   <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.08)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: '#828a94', marginBottom: 6 }}><span>Precio</span><span>{fARS(vPrecioARS)}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: '#82b39d', marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(231,238,246,0.08)' }}><span>− Canje</span><span>−{fARS(canjeNum)}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: '#82b39d', marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(231,238,246,0.08)' }}><span>− Canje ({fUSD(canjeNum)})</span><span>−{fARS(canjeNum * tc)}</span></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, color: '#eef2f7' }}><span>Saldo</span><span>{fARS(saldoTrasCanje)}</span></div>
                   </div>
                 )}
@@ -872,7 +872,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <span style={{ fontSize: 13.5, color: '#828a94', flexShrink: 0 }}>Canje</span>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 13.5, color: '#82b39d', fontWeight: 500 }}>{fARS(canjeNum)}</div>
+                    <div style={{ fontSize: 13.5, color: '#82b39d', fontWeight: 500 }}>{fUSD(canjeNum)} <span style={{ fontSize: 11, color: '#6a717b' }}>({fARS(canjeNum * tc)})</span></div>
                     {canjeEquipoLabel && <div style={{ fontSize: 11, color: '#6a717b', marginTop: 1 }}>{canjeEquipoLabel}</div>}
                   </div>
                 </div>

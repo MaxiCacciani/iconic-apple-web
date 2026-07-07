@@ -99,10 +99,10 @@ export function validateAnticipo(anticipo, precioARS) {
   return null;
 }
 
-export function validateCanjeValor(valor, precioARS) {
-  const v = parseInt(valor, 10) || 0;
+export function validateCanjeValor(valor, precioUSD) {
+  const v = parseFloat(valor) || 0;
   if (v < 0) return 'El valor del canje no puede ser negativo.';
-  if (v >= precioARS) return 'El canje no puede cubrir el precio completo.';
+  if (v >= precioUSD) return 'El canje no puede cubrir el precio completo.';
   return null;
 }
 

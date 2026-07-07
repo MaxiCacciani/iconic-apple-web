@@ -110,7 +110,7 @@ export default function VentaDetalleModal({ venta, onClose }) {
         {venta.canje && venta.canjeEquipo && (
           <Row
             label="Canje"
-            value={`${venta.canjeEquipo}${venta.canjeValor ? ' · ' + fARS(venta.canjeValor) : ''}`}
+            value={`${venta.canjeEquipo}${venta.canjeValor ? ' · ' + fUSD(venta.canjeValor) : ''}`}
           />
         )}
         <Row label="TC del día" value={`$${(tcV).toLocaleString('es-AR')}`} />
