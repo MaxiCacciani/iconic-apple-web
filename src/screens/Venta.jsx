@@ -239,6 +239,7 @@ function PrecioInput({ item, onUpdate }) {
           type="number" min="0" step="0.01"
           value={localVal}
           onChange={e => { setLocalVal(e.target.value); onUpdate(item.carritoId, e.target.value); }}
+          onWheel={e => e.target.blur()}
           style={{ width: 64, background: 'none', border: 'none', color: '#eef2f7', fontSize: 13.5, fontWeight: 600, textAlign: 'right', padding: 0 }}
         />
       </div>
@@ -291,6 +292,7 @@ function VendedorStep({ vendedorNumero, onChangeNumero }) {
           <input
             type="number" min="1" value={vendedorNumero}
             onChange={e => onChangeNumero(e.target.value)}
+            onWheel={e => e.target.blur()}
             placeholder="—"
             style={{ width: '100%', background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 600, padding: 0, textAlign: 'center' }}
           />
@@ -720,7 +722,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                   <div style={{ marginBottom: 18 }}>
                     <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 9 }}>Cantidad personalizada</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(116,168,214,0.3)' }}>
-                      <input type="number" min="1" max="60" value={cuotas || ''} onChange={e => setCuotas(parseInt(e.target.value) || 0)} placeholder="ej. 18" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
+                      <input type="number" min="1" max="60" value={cuotas || ''} onChange={e => setCuotas(parseInt(e.target.value) || 0)} onWheel={e => e.target.blur()} placeholder="ej. 18" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
                       <span style={{ fontSize: 13, color: '#828a94' }}>cuotas</span>
                     </div>
                   </div>

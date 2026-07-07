@@ -112,6 +112,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
                 type="number"
                 value={tcInput}
                 onChange={e => setTcInput(e.target.value)}
+                onWheel={e => e.target.blur()}
                 onKeyDown={e => {
                   if (e.key === 'Enter') { onUpdateTC(tcInput); setTcEdit(false); }
                   if (e.key === 'Escape') setTcEdit(false);

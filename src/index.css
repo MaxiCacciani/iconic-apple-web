@@ -15,6 +15,9 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(231,238,246,0.18); }
 input { outline: none; font-family: 'Hanken Grotesk', sans-serif; }
 input::placeholder { color: #6a717b; }
+input[type=number] { -moz-appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 button { font-family: 'Hanken Grotesk', sans-serif; }
 
 @keyframes toastIn {

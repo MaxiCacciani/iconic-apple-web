@@ -22,6 +22,7 @@ function FieldInput({ value, onChange, placeholder, type = 'text', style = {} })
       type={type}
       value={value}
       onChange={onChange}
+      onWheel={type === 'number' ? e => e.target.blur() : undefined}
       placeholder={placeholder}
       style={{
         width: '100%', padding: '11px 14px', borderRadius: 10,

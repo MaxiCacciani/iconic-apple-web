@@ -106,7 +106,7 @@ function ConvertirModal({ reserva, equipos, onConfirm, onClose }) {
           </div>
           {cuotasCustom && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(116,168,214,0.3)', marginBottom: 12 }}>
-              <input type="number" min="1" max="60" value={cuotas || ''} onChange={e => setCuotas(parseInt(e.target.value) || 0)} placeholder="ej. 18" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 14 }} />
+              <input type="number" min="1" max="60" value={cuotas || ''} onChange={e => setCuotas(parseInt(e.target.value) || 0)} onWheel={e => e.target.blur()} placeholder="ej. 18" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 14 }} />
               <span style={{ fontSize: 13, color: '#828a94' }}>cuotas</span>
             </div>
           )}

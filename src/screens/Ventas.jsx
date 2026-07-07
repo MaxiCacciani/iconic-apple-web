@@ -14,7 +14,7 @@ function EditCostoModal({ venta, onSave, onClose }) {
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8, color: '#6a717b' }}>Costo en USD</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)', marginBottom: 16 }}>
         <span style={{ color: '#828a94', fontSize: 15 }}>US$</span>
-        <input type="number" min="0" step="0.01" value={costo} onChange={e => setCosto(e.target.value)} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} autoFocus />
+        <input type="number" min="0" step="0.01" value={costo} onChange={e => setCosto(e.target.value)} onWheel={e => e.target.blur()} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} autoFocus />
       </div>
       {ganancia !== null && (
         <div style={{ padding: '12px 14px', borderRadius: 10, background: ganancia >= 0 ? 'rgba(130,179,157,0.08)' : 'rgba(217,138,118,0.08)', border: `1px solid ${ganancia >= 0 ? 'rgba(130,179,157,0.2)' : 'rgba(217,138,118,0.2)'}`, marginBottom: 20 }}>
@@ -92,7 +92,7 @@ function VendedorModal({ vendedores, onSave, onClose }) {
       <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 12, marginBottom: 18 }}>
         <div>
           <span style={ML}>Nº vendedor</span>
-          <input type="number" min="1" value={numero} onChange={e => setNumero(e.target.value)} style={IN} autoFocus />
+          <input type="number" min="1" value={numero} onChange={e => setNumero(e.target.value)} onWheel={e => e.target.blur()} style={IN} autoFocus />
           {yaExiste && <div style={{ fontSize: 11, color: '#d98a76', marginTop: 4 }}>Ya existe, va a reemplazarlo</div>}
         </div>
         <div>
