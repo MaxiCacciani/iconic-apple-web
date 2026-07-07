@@ -223,6 +223,30 @@ function NuevoClienteModal({ nombre: nombreInit, clientes, onSave, onClose }) {
   );
 }
 
+// ─── PrecioInput ─────────────────────────────────────────────────────────────
+
+function PrecioInput({ item, onUpdate }) {
+  const init = item.usdVenta !== null && item.usdVenta !== undefined ? item.usdVenta : item.usd;
+  const [localVal, setLocalVal] = useState(String(init));
+  const num = parseFloat(localVal);
+  const efectivo = !isNaN(num) ? num : init;
+  const bajoCosto = item.costo && efectivo < item.costo;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px 3px 10px', borderRadius: 7, background: 'rgba(231,238,246,0.04)', border: `1px solid ${bajoCosto ? 'rgba(217,138,118,0.5)' : 'rgba(231,238,246,0.1)'}` }}>
+        <span style={{ fontSize: 11, color: '#6a717b' }}>US$</span>
+        <input
+          type="number" min="0" step="0.01"
+          value={localVal}
+          onChange={e => { setLocalVal(e.target.value); onUpdate(item.carritoId, e.target.value); }}
+          style={{ width: 64, background: 'none', border: 'none', color: '#eef2f7', fontSize: 13.5, fontWeight: 600, textAlign: 'right', padding: 0 }}
+        />
+      </div>
+      {bajoCosto && <span style={{ fontSize: 10.5, color: '#d98a76' }}>⚠ bajo costo ({fUSD(item.costo)})</span>}
+    </div>
+  );
+}
+
 // ─── CanjeCombo ──────────────────────────────────────────────────────────────
 
 const CANJE_SEL = { width: '100%', padding: '10px 14px', borderRadius: 10, background: '#1e2228', border: '1px solid rgba(231,238,246,0.09)', color: '#eef2f7', fontSize: 14, appearance: 'none', boxSizing: 'border-box', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236a717b' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' };
@@ -444,6 +468,9 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
       const ev = validateCanjeValor(canjeValor, vPrecioARS); if (ev) e.push(ev);
       if (canjeIsPhone && canjeModelo) {
         const ei = validateIMEI(canjeImei, false); if (ei) e.push(`IMEI canje: ${ei}`);
+        else if (canjeImei && equipos.some(eq => eq.imei && eq.imei === canjeImei && eq.estado !== 'vendido')) {
+          e.push('IMEI canje: ya existe en el stock con ese IMEI');
+        }
         const eb = validateBat(canjeBat); if (eb) e.push(`Batería canje: ${eb}`);
       }
     }
@@ -547,20 +574,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                         </div>
                         {e.esRegalo
                           ? <span style={{ fontSize: 12, color: '#82b39d', padding: '2px 8px', borderRadius: 5, background: 'rgba(130,179,157,0.12)', border: '1px solid rgba(130,179,157,0.3)', whiteSpace: 'nowrap' }}>🎁 Regalo</span>
-                          : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px 3px 10px', borderRadius: 7, background: 'rgba(231,238,246,0.04)', border: `1px solid ${e.usdVenta !== null && e.usdVenta !== undefined && e.usdVenta < (e.costo || Infinity) ? 'rgba(217,138,118,0.5)' : 'rgba(231,238,246,0.1)'}` }}>
-                                <span style={{ fontSize: 11, color: '#6a717b' }}>US$</span>
-                                <input
-                                  type="number" min="0" step="0.01"
-                                  value={e.usdVenta !== null && e.usdVenta !== undefined ? e.usdVenta : e.usd}
-                                  onChange={ev => updatePrecio(e.carritoId, ev.target.value)}
-                                  style={{ width: 64, background: 'none', border: 'none', color: '#eef2f7', fontSize: 13.5, fontWeight: 600, textAlign: 'right', padding: 0 }}
-                                />
-                              </div>
-                              {e.costo && effPrecio(e) < e.costo && (
-                                <span style={{ fontSize: 10.5, color: '#d98a76' }}>⚠ bajo costo ({fUSD(e.costo)})</span>
-                              )}
-                            </div>
+                          : <PrecioInput key={e.carritoId} item={e} onUpdate={updatePrecio} />
                         }
                         <button onClick={() => toggleRegalo(e.carritoId)} title={e.esRegalo ? 'Quitar regalo' : 'Marcar como regalo ($0)'} style={{ padding: '3px 8px', borderRadius: 6, background: 'none', border: `1px solid ${e.esRegalo ? 'rgba(130,179,157,0.4)' : 'rgba(231,238,246,0.1)'}`, cursor: 'pointer', color: e.esRegalo ? '#82b39d' : '#6a717b', fontSize: 12 }}>
                           {e.esRegalo ? '✓ Regalo' : '🎁'}
@@ -746,8 +760,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                 </div>
                 <div><span style={CANJE_LB}>Modelo</span><CanjeCombo value={canjeModelo} onChange={setCanjeModelo} options={getModelos(canjeCategoria)} placeholder="ej. iPhone 13" /></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div><span style={CANJE_LB}>Capacidad</span><CanjeCombo value={canjeCap} onChange={setCanjeCap} options={canjeIsPhone ? getCaps(canjeModelo) : []} placeholder="ej. 128 GB" /></div>
-                  <div><span style={CANJE_LB}>Color</span><CanjeCombo value={canjeColor} onChange={setCanjeColor} options={canjeIsPhone ? getColores(canjeModelo) : []} placeholder="ej. Negro" /></div>
+                  <div><span style={CANJE_LB}>Capacidad</span><CanjeCombo value={canjeCap} onChange={setCanjeCap} options={getCaps(canjeCategoria) || []} placeholder="ej. 128 GB" /></div>
+                  <div><span style={CANJE_LB}>Color</span><CanjeCombo value={canjeColor} onChange={setCanjeColor} options={getColores(canjeCategoria) || []} placeholder="ej. Negro" /></div>
                 </div>
                 <div><span style={CANJE_LB}>Condición</span>
                   <div style={{ display: 'flex', gap: 8 }}>
