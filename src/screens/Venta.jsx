@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { esPhone, esConsola, fARS, fUSD, batColor, CATEGORIAS, getModelos, getCaps, getColores } from '../data/data.js';
+import { getCatDef, esPhone, CATEGORIAS, getModelos, getCaps, getColores } from '../data/data.js';
+import { fARS, fUSD, batColor } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
+import BatBadge from '../components/BatBadge.jsx';
+import EquipoPicker from '../components/EquipoPicker.jsx';
 import { validateDNI, validateTel, validateSenia, validateAnticipo, validateCanjeValor, validateCuotas, validateIMEI, validateBat, isDNIDuplicate } from '../lib/validation.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
@@ -17,20 +20,6 @@ function savePacks(packs) {
   localStorage.setItem(PACKS_KEY, JSON.stringify(packs));
 }
 
-// ─── BatBadge ────────────────────────────────────────────────────────────────
-
-function BatBadge({ bat }) {
-  const c = batColor(bat);
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ width: 22, height: 11, borderRadius: 3, border: `1.5px solid ${c}`, position: 'relative', display: 'inline-block' }}>
-        <span style={{ position: 'absolute', inset: '1.5px 1.5px 1.5px', borderRadius: 1.5, background: c, width: `${bat}%`, maxWidth: '100%' }} />
-        <span style={{ position: 'absolute', right: -4, top: '50%', transform: 'translateY(-50%)', width: 2.5, height: 5, borderRadius: '0 1px 1px 0', background: c }} />
-      </span>
-      <span style={{ fontSize: 12, color: c, fontWeight: 500 }}>{bat}%</span>
-    </span>
-  );
-}
 
 // ─── PackModal ───────────────────────────────────────────────────────────────
 
@@ -104,93 +93,6 @@ function PackModal({ pack, equipos, onSave, onClose }) {
   );
 }
 
-// ─── EquipoPicker ────────────────────────────────────────────────────────────
-
-function EquipoPicker({ equipos, carrito, onAdd, onRemoveAll, onDecrement }) {
-  const [q, setQ] = useState('');
-  const [filtroCond, setFiltroCond] = useState('todos');
-  const [filtroTipo, setFiltroTipo] = useState('todos');
-
-  const disp = equipos.filter(e => e.estado === 'disponible');
-  const tiposDisp = ['todos', ...Array.from(new Set(disp.map(e => esPhone(e.categoria) ? e.categoria : esConsola(e.categoria) ? e.categoria : 'Accesorios')))];
-  const qLow = q.trim().toLowerCase();
-  const filtrados = disp.filter(e => {
-    if (filtroCond !== 'todos' && e.cond !== filtroCond) return false;
-    const tipoEq = esPhone(e.categoria) ? e.categoria : esConsola(e.categoria) ? e.categoria : 'Accesorios';
-    if (filtroTipo !== 'todos' && tipoEq !== filtroTipo) return false;
-    if (!qLow) return true;
-    return (e.modelo + e.imei + e.color + e.cap + e.categoria).toLowerCase().includes(qLow);
-  });
-
-  const pillB = (active) => ({ padding: '5px 13px', borderRadius: 20, fontSize: 12.5, cursor: 'pointer', border: 'none', fontFamily: "'Hanken Grotesk', sans-serif", background: active ? '#74a8d6' : 'rgba(231,238,246,0.06)', color: active ? '#14171c' : '#828a94', fontWeight: active ? 600 : 400 });
-
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 11, padding: '10px 14px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)' }}>
-        <span style={{ color: '#6a717b', fontSize: 14 }}>⌕</span>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar por modelo, IMEI, color, capacidad…" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 13.5 }} />
-        {q && <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', color: '#6a717b', cursor: 'pointer', fontSize: 14, padding: 0 }}>×</button>}
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-        {['todos','Nuevo','Usado'].map(c => <button key={c} onClick={() => setFiltroCond(c)} style={pillB(filtroCond === c)}>{c === 'todos' ? 'Todas' : c}</button>)}
-        <span style={{ width: 1, background: 'rgba(231,238,246,0.1)', alignSelf: 'stretch', margin: '0 2px' }} />
-        {tiposDisp.map(t => <button key={t} onClick={() => setFiltroTipo(t)} style={pillB(filtroTipo === t)}>{t === 'todos' ? 'Todos' : t}</button>)}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 300, overflowY: 'auto', paddingRight: 4 }}>
-        {filtrados.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: '#6a717b', fontSize: 13.5 }}>Sin resultados{q ? ` para "${q}"` : ''}.</div>}
-        {filtrados.map(e => {
-          const cartSlots = carrito.filter(c => c.id === e.id);
-          const enCarrito = cartSlots.length > 0;
-          const isPhone = esPhone(e.categoria);
-          const cantActual = cartSlots.reduce((s, c) => s + (c.cantidadVenta || 1), 0);
-          const puedeMas = cantActual < e.cantidad;
-          const isCons = esConsola(e.categoria);
-          const tieneDefectos = e.defectos && e.defectos.trim().length > 0;
-          const bordeCard = enCarrito ? 'rgba(130,179,157,0.45)' : (!isCons && tieneDefectos) ? 'rgba(217,138,118,0.25)' : 'rgba(231,238,246,0.08)';
-          return (
-            <div key={e.id} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 14, padding: '13px 16px', borderRadius: 12, border: `1px solid ${bordeCard}`, background: enCarrito ? 'rgba(130,179,157,0.05)' : 'rgba(231,238,246,0.02)' }}>
-              {enCarrito && <span style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, borderRadius: '0 3px 3px 0', background: '#82b39d' }} />}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>{e.modelo}</span>
-                  {e.cap && <span style={{ fontSize: 12.5, color: '#828a94' }}>{e.cap}</span>}
-                  <span style={{ fontSize: 11.5, padding: '2px 8px', borderRadius: 20, background: e.cond === 'Nuevo' ? 'rgba(130,179,157,0.13)' : 'rgba(116,168,214,0.12)', color: e.cond === 'Nuevo' ? '#82b39d' : '#74a8d6' }}>{e.cond}</span>
-                  {!isPhone && e.cantidad > 1 && <span style={{ fontSize: 11, color: '#6a717b' }}>{e.cantidad} uds. en stock</span>}
-                </div>
-                <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 3 }}>{e.color}</div>
-                {isPhone && e.imei && <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 7 }}><span style={{ ...MONO(10), color: '#6a717b', letterSpacing: 1, textTransform: 'uppercase' }}>IMEI</span><span style={{ ...MONO(12.5, '#a6afba') }}>{e.imei}</span></div>}
-                {isPhone && e.cond === 'Usado' && e.bat && <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 7 }}><span style={{ ...MONO(10), color: '#6a717b', letterSpacing: 1, textTransform: 'uppercase' }}>Batería</span><BatBadge bat={e.bat} /></div>}
-                {isCons && e.bat > 0 && <div style={{ fontSize: 12, color: '#9b93d6', marginTop: 5 }}>{e.bat} control{e.bat !== 1 ? 'es' : ''}</div>}
-                {isCons && tieneDefectos && <div style={{ fontSize: 12, color: '#828a94', marginTop: 3 }}>{e.defectos}</div>}
-                {!isCons && tieneDefectos && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 7, padding: '6px 10px', borderRadius: 8, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.18)' }}><span style={{ fontSize: 11 }}>⚠</span><span style={{ fontSize: 12, color: '#e6ab98' }}>{e.defectos}</span></div>}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 7, flexShrink: 0 }}>
-                <span style={{ fontSize: 15, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(e.usd)}</span>
-                {!enCarrito && (
-                  <button onClick={() => onAdd(e)} style={{ fontSize: 12, fontWeight: 600, color: '#74a8d6', background: 'rgba(116,168,214,0.08)', border: '1px solid rgba(116,168,214,0.3)', padding: '5px 10px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Agregar</button>
-                )}
-                {enCarrito && isPhone && (
-                  <button onClick={() => onRemoveAll(e.id)} style={{ fontSize: 12, fontWeight: 600, color: '#82b39d', background: 'rgba(130,179,157,0.1)', border: '1px solid rgba(130,179,157,0.3)', padding: '5px 10px', borderRadius: 8, cursor: 'pointer' }}>✓ Quitar</button>
-                )}
-                {enCarrito && !isPhone && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <button onClick={() => onDecrement(e.id)} style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(130,179,157,0.4)', background: 'rgba(130,179,157,0.08)', color: '#82b39d', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-                      <span style={{ minWidth: 36, textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#eef2f7' }}>{cantActual}/{e.cantidad}</span>
-                      <button onClick={() => onAdd(e)} disabled={!puedeMas} style={{ width: 26, height: 26, borderRadius: 6, border: `1px solid ${puedeMas ? 'rgba(130,179,157,0.4)' : 'rgba(231,238,246,0.08)'}`, background: puedeMas ? 'rgba(130,179,157,0.08)' : 'rgba(231,238,246,0.02)', color: puedeMas ? '#82b39d' : '#4a5058', fontSize: 14, cursor: puedeMas ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-                    </div>
-                    <button onClick={() => onRemoveAll(e.id)} style={{ fontSize: 11, color: '#6a717b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Quitar todos</button>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {filtrados.length > 0 && <div style={{ ...MONO(11), marginTop: 8, textAlign: 'right' }}>{filtrados.length} equipo{filtrados.length !== 1 ? 's' : ''} disponible{filtrados.length !== 1 ? 's' : ''}</div>}
-    </div>
-  );
-}
 
 // ─── NuevoClienteModal ───────────────────────────────────────────────────────
 
@@ -320,6 +222,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [cuotas, setCuotas] = useState(6);
   const [cuotasCustom, setCuotasCustom] = useState(false);
   const [anticipo, setAnticipo] = useState('');
+  const [primeraCuotaHoy, setPrimeraCuotaHoy] = useState(false);
   const [metodo, setMetodo] = useState('Transferencia');
   const [cliente, setCliente] = useState('');
   const [clienteId, setClienteId] = useState(null);
@@ -454,16 +357,17 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const totalUnidades = carrito.reduce((a, b) => a + (b.cantidadVenta || 1), 0);
   const vPrecioUSD = carrito.reduce((a, b) => a + (b.esRegalo ? 0 : effPrecio(b) * (b.cantidadVenta || 1)), 0);
   const vPrecioARS = vPrecioUSD * tc;
-  const antNum = parseInt(anticipo || '0', 10) || 0;
+  const antNum = parseFloat(anticipo || '0') || 0;
   const seniaNum = parseInt(seniaContado || '0', 10) || 0;
   const canjeNum = parseFloat(canjeValor || '0') || 0;  // USD
   const esCuotas = modalidad === 'cuotas';
-  const aFinanciar = Math.max(0, vPrecioARS - antNum);
+  const aFinanciar = Math.max(0, vPrecioUSD - antNum);
   const cuotaMonto = esCuotas && cuotas ? Math.round(aFinanciar / cuotas) : 0;
   const saldoContado = Math.max(0, vPrecioARS - seniaNum);
   const saldoTrasCanje = Math.max(0, vPrecioARS - canjeNum * tc);
-  const canjeIsPhone  = esPhone(canjeCategoria);
-  const canjeIsConsola = esConsola(canjeCategoria);
+  const canjeDef       = getCatDef(canjeCategoria);
+  const canjeIsPhone   = canjeDef.tieneIMEI;
+  const canjeIsConsola = canjeDef.tieneControles;
   const canjeControlesNum = parseInt(canjeControles) || 0;
   const canjeEquipoLabel = [
     canjeModelo, canjeCap, canjeColor,
@@ -476,7 +380,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     const e = [];
     if (esCuotas) {
       const ec = validateCuotas(cuotas); if (ec) e.push(ec);
-      const ea = validateAnticipo(anticipo, vPrecioARS); if (ea) e.push(ea);
+      const ea = validateAnticipo(anticipo, vPrecioUSD); if (ea) e.push(ea);
     }
     if (!esCuotas && tieneApartado) { const es = validateSenia(seniaContado, vPrecioARS); if (es) e.push(es); }
     if (canje) {
@@ -525,7 +429,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
       categoria: primerEq?.categoria || '', cliente, usd: vPrecioUSD,
       costo: costoTotal || null, tc, modalidad: esCuotas ? 'cuotas' : 'contado',
       cuotas: esCuotas ? cuotas : null, anticipo: esCuotas ? antNum : null, metodo,
-      cuotaMonto: esCuotas ? cuotaMonto : null, canje,
+      cuotaMonto: esCuotas ? cuotaMonto : null, primeraCuotaHoy: esCuotas ? primeraCuotaHoy : false, canje,
       canjeEquipo: canje ? canjeEquipoLabel : null,
       canjeValor: canje ? canjeNum : null, lineas,
       vendedorNumero: vendedorNumero ? parseInt(vendedorNumero, 10) : null,
@@ -744,11 +648,20 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                     </div>
                   </div>
                 )}
-                <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 9 }}>Anticipo / seña (ARS)</div>
+                <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 9 }}>Anticipo (USD)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)' }}>
-                  <span style={{ color: '#828a94', fontSize: 15 }}>$</span>
-                  <input type="text" inputMode="numeric" value={anticipo} onChange={e => setAnticipo(e.target.value.replace(/[^0-9]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
+                  <span style={{ color: '#828a94', fontSize: 15 }}>US$</span>
+                  <input type="text" inputMode="decimal" value={anticipo} onChange={e => setAnticipo(e.target.value.replace(/[^0-9.]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
                 </div>
+                <button onClick={() => setPrimeraCuotaHoy(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '13px 15px', marginTop: 10, borderRadius: 11, border: `1px solid ${primeraCuotaHoy ? 'rgba(130,179,157,0.5)' : 'rgba(231,238,246,0.09)'}`, background: primeraCuotaHoy ? 'rgba(130,179,157,0.08)' : 'rgba(231,238,246,0.02)', cursor: 'pointer' }}>
+                  <span style={{ width: 17, height: 17, borderRadius: 4, border: `1.5px solid ${primeraCuotaHoy ? '#82b39d' : 'rgba(231,238,246,0.25)'}`, background: primeraCuotaHoy ? 'rgba(130,179,157,0.3)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {primeraCuotaHoy && <span style={{ fontSize: 11, color: '#eef2f7', fontWeight: 700 }}>✓</span>}
+                  </span>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: primeraCuotaHoy ? '#eef2f7' : '#a6afba' }}>Primera cuota hoy</div>
+                    <div style={{ fontSize: 11.5, color: primeraCuotaHoy ? '#82b39d' : '#6a717b', marginTop: 1 }}>Se registra como cobrada · el resto arranca el mes que viene</div>
+                  </div>
+                </button>
               </div>
             )}
           </div>
@@ -779,7 +692,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                 </div>
                 <div><span style={CANJE_LB}>Modelo</span><CanjeCombo value={canjeModelo} onChange={setCanjeModelo} options={getModelos(canjeCategoria)} placeholder="ej. iPhone 13 / PS5" /></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div><span style={CANJE_LB}>{canjeIsConsola ? 'Edición / Almacenamiento' : 'Capacidad'}</span><CanjeCombo value={canjeCap} onChange={setCanjeCap} options={getCaps(canjeCategoria) || []} placeholder={canjeIsConsola ? 'ej. Edición Disco' : 'ej. 128 GB'} /></div>
+                  <div><span style={CANJE_LB}>{canjeDef.capLabel}</span><CanjeCombo value={canjeCap} onChange={setCanjeCap} options={getCaps(canjeCategoria) || []} placeholder={canjeIsConsola ? 'ej. Edición Disco' : 'ej. 128 GB'} /></div>
                   <div><span style={CANJE_LB}>Color</span><CanjeCombo value={canjeColor} onChange={setCanjeColor} options={getColores(canjeCategoria) || []} placeholder="ej. Negro" /></div>
                 </div>
                 <div><span style={CANJE_LB}>Condición</span>
@@ -863,8 +776,9 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {carrito.map((e, i) => {
-                  const isPhone = esPhone(e.categoria);
-                  const isCons  = esConsola(e.categoria);
+                  const cDef    = getCatDef(e.categoria);
+                  const isPhone = cDef.tieneIMEI;
+                  const isCons  = cDef.tieneControles;
                   const precioMostrar = e.esRegalo ? 0 : effPrecio(e) * (e.cantidadVenta || 1);
                   return (
                     <div key={e.id} style={{ paddingBottom: carrito.length > 1 && i < carrito.length - 1 ? 12 : 0, borderBottom: carrito.length > 1 && i < carrito.length - 1 ? '1px solid rgba(231,238,246,0.06)' : 'none' }}>
@@ -932,8 +846,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Saldo al retirar</span><span style={{ fontSize: 13.5, color: '#9ec6ec', fontWeight: 600 }}>{fARS(saldoContado)}</span></div>
             </>}
             {esCuotas && <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Anticipo</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{fARS(antNum)}</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>A financiar</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{fARS(aFinanciar)}</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Anticipo</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{fUSD(antNum)}</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>A financiar</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{fUSD(aFinanciar)}</span></div>
             </>}
           </div>
 
@@ -942,8 +856,11 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase' }}>Plan de pago</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
                 <span style={{ fontSize: 15, color: '#a6afba' }}>{cuotas} cuotas de</span>
-                <span style={SERIF(26, '#9ec6ec')}>{fARS(cuotaMonto)}</span>
+                <span style={SERIF(26, '#9ec6ec')}>{fUSD(cuotaMonto)}</span>
               </div>
+              {primeraCuotaHoy && (
+                <div style={{ fontSize: 12, color: '#82b39d', marginTop: 5 }}>Cuota 1 hoy · cobrada · resto desde el mes que viene</div>
+              )}
             </div>
           )}
 

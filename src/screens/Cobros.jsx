@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { TODAY, MONTH_NAMES, DAY_NAMES, fARS, dnum, dim, firstW, weekdayOf } from '../data/data.js';
+import { useState, useEffect, useRef } from 'react';
+import { TODAY, MONTH_NAMES, DAY_NAMES, fARS, fUSD, dnum, dim, firstW, weekdayOf } from '../lib/utils.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -13,14 +13,32 @@ function buildGarEvents(ventas) {
     });
 }
 
-export default function Cobros({ cobros, ventas, onUpdateEstado }) {
-  const GAR_EVENTS = buildGarEvents(ventas);
+export default function Cobros({ cobros, ventas, onUpdateEstado, onRefresh }) {
+  useEffect(() => { onRefresh?.(); }, []);
 
   const [calY, setCalY] = useState(TODAY.y);
   const [calM, setCalM] = useState(TODAY.m);
   const [selY, setSelY] = useState(TODAY.y);
   const [selM, setSelM] = useState(TODAY.m);
   const [selD, setSelD] = useState(TODAY.d);
+
+  // Al llegar los cobros por primera vez, posicionar el calendario en el primer mes pendiente
+  const autoNavDone = useRef(false);
+  useEffect(() => {
+    if (autoNavDone.current || cobros.length === 0) return;
+    const first = cobros
+      .filter(c => c.estado !== 'cobrada')
+      .sort((a, b) => (a.y * 10000 + a.m * 100 + a.d) - (b.y * 10000 + b.m * 100 + b.d))[0];
+    autoNavDone.current = true;
+    if (!first) return;
+    setCalY(first.y);
+    setCalM(first.m);
+    setSelY(first.y);
+    setSelM(first.m);
+    setSelD(first.d);
+  }, [cobros]);
+
+  const GAR_EVENTS = buildGarEvents(ventas);
 
   const prevMonth = () => {
     if (calM === 1) { setCalY(calY - 1); setCalM(12); setSelY(calY - 1); setSelM(12); setSelD(1); }
@@ -61,6 +79,11 @@ export default function Cobros({ cobros, ventas, onUpdateEstado }) {
   const dayName = DAY_NAMES[weekdayOf(selY, selM, selD)];
   const monthNameLow = MONTH_NAMES[selM - 1].toLowerCase();
 
+  const proximas = cobros
+    .filter(c => c.estado !== 'cobrada')
+    .sort((a, b) => (a.y * 10000 + a.m * 100 + a.d) - (b.y * 10000 + b.m * 100 + b.d))
+    .slice(0, 10);
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 26, flexWrap: 'wrap', gap: 16 }}>
@@ -72,8 +95,8 @@ export default function Cobros({ cobros, ventas, onUpdateEstado }) {
         </div>
         <div style={{ display: 'flex', gap: 24 }}>
           {[
-            ['Por cobrar', fARS(mSum('pendiente')), '#74a8d6'],
-            ['Vencido',    fARS(mSum('vencida')),   '#d98a76'],
+            ['Por cobrar', fUSD(mSum('pendiente')), '#74a8d6'],
+            ['Vencido',    fUSD(mSum('vencida')),   '#d98a76'],
             ['Garantías',  `${garMonth.length}`,    '#9b93d6'],
           ].map(([label, val, color]) => (
             <div key={label}>
@@ -159,13 +182,13 @@ export default function Cobros({ cobros, ventas, onUpdateEstado }) {
             <div style={{ marginBottom: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
                 <span style={{ ...MONO(10, '#74a8d6'), letterSpacing: 1.5, textTransform: 'uppercase' }}>Cobros</span>
-                <span style={{ fontSize: 13, color: '#a6afba' }}>{fARS(selCob.reduce((a, b) => a + b.monto, 0))}</span>
+                <span style={{ fontSize: 13, color: '#a6afba' }}>{fUSD(selCob.reduce((a, b) => a + b.monto, 0))}</span>
               </div>
               {selCob.map((c) => (
                 <div key={c.id} style={{ padding: '13px 0', borderBottom: '1px solid rgba(231,238,246,0.05)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{c.cliente}</span>
-                    <span style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{fARS(c.monto)}</span>
+                    <span style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{fUSD(c.monto)}</span>
                   </div>
                   <div style={{ fontSize: 12, color: '#828a94', marginBottom: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.equipo}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -209,6 +232,27 @@ export default function Cobros({ cobros, ventas, onUpdateEstado }) {
           )}
         </div>
       </div>
+
+      {proximas.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14, color: '#6a717b' }}>Próximas cuotas a cobrar</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {proximas.map(c => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 16px', borderRadius: 12, border: `1px solid ${c.estado === 'vencida' ? 'rgba(217,138,118,0.25)' : 'rgba(231,238,246,0.08)'}`, background: c.estado === 'vencida' ? 'rgba(217,138,118,0.04)' : 'rgba(231,238,246,0.02)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: '#eef2f7' }}>{c.cliente}</div>
+                  <div style={{ fontSize: 12, color: '#828a94', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.equipo}</div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: c.estado === 'vencida' ? '#d98a76' : '#eef2f7' }}>{fUSD(c.monto)}</div>
+                  <div style={{ fontSize: 11.5, color: '#828a94', marginTop: 2 }}>{`${c.d}/${c.m}/${c.y}`}</div>
+                </div>
+                {c.estado === 'vencida' && <span style={{ fontSize: 11, color: '#d98a76', padding: '2px 8px', borderRadius: 20, background: 'rgba(217,138,118,0.13)', flexShrink: 0 }}>Vencida</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

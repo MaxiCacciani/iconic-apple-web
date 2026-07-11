@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { TODAY, DIAGNOSTICOS, fARS, fUSD, dnum, saldoDe } from '../data/data.js';
+import { DIAGNOSTICOS } from '../data/data.js';
+import { TODAY, fARS, fUSD, dnum, saldoDe } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
 import { validateDNI, validateTel, isDNIDuplicate } from '../lib/validation.js';

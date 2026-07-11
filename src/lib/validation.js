@@ -92,10 +92,10 @@ export function validateSenia(senia, precioARS) {
   return null;
 }
 
-export function validateAnticipo(anticipo, precioARS) {
-  const a = parseInt(anticipo, 10) || 0;
+export function validateAnticipo(anticipo, precioUSD) {
+  const a = parseFloat(anticipo) || 0;
   if (a < 0) return 'El anticipo no puede ser negativo.';
-  if (a >= precioARS) return 'El anticipo no puede cubrir el total (usá Contado en su lugar).';
+  if (a >= precioUSD) return 'El anticipo no puede cubrir el total (usá Contado en su lugar).';
   return null;
 }
 

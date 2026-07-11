@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { fARS, fUSD } from '../data/data.js';
+import { fARS, fUSD } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
 
@@ -406,8 +406,8 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
 
       {/* Table header */}
       <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '0 16px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
-        {[['Fecha','left'],['Equipo','left'],['Cliente','left'],['Modalidad','left'],['Método','left'],['Precio / Ganancia','right'],['','right'],['','right']].map(([h, align]) => (
-          <span key={h} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1.5, textTransform: 'uppercase', textAlign: align }}>{h}</span>
+        {[['Fecha','left'],['Equipo','left'],['Cliente','left'],['Modalidad','left'],['Método','left'],['Precio / Ganancia','right'],['','right'],['','right']].map(([h, align], i) => (
+          <span key={i} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1.5, textTransform: 'uppercase', textAlign: align }}>{h}</span>
         ))}
       </div>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CATEGORIAS, esPhone, esConsola, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
+import { CATEGORIAS, getCatDef, esPhone, DEFECTOS_COMUNES, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
+import { fARS, fUSD, batColor } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import { validateIMEI, isIMEIDuplicate, validatePrecio, validateCosto, validateBat, validateCantidad } from '../lib/validation.js';
 
@@ -103,8 +104,9 @@ function StockModal({ initial, equipos, onSave, onClose }) {
     : { ...EMPTY_FORM }
   );
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const phone   = esPhone(form.categoria);
-  const consola = esConsola(form.categoria);
+  const def     = getCatDef(form.categoria);
+  const phone   = def.tieneIMEI;
+  const consola = def.tieneControles;
   const duplicado = !isEdit ? findDuplicateAccesorio(equipos, form) : null;
 
   const getErrors = () => {
@@ -183,7 +185,7 @@ function StockModal({ initial, equipos, onSave, onClose }) {
 
       <div style={{ ...row2, ...fieldWrap }}>
         <div>
-          <FieldLabel>{phone ? 'Almacenamiento' : 'Especificación'}</FieldLabel>
+          <FieldLabel>{def.capLabel}</FieldLabel>
           {capsList
             ? <FieldCombo value={form.cap} onChange={v => set('cap', v)} options={capsList} placeholder="256 GB" />
             : <FieldInput value={form.cap} onChange={e => set('cap', e.target.value)} placeholder="20W, 1m…" />
@@ -355,7 +357,7 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
   });
 
   const disponibles = equipos.filter(e => e.estado === 'disponible');
-  const valorDisp = disponibles.filter(e => esPhone(e.categoria)).reduce((a, b) => a + b.usd, 0);
+  const valorDisp = disponibles.filter(e => getCatDef(e.categoria).tieneIMEI).reduce((a, b) => a + b.usd, 0);
   const estCount = (k) => k === 'todos' ? equipos.length : equipos.filter(e => e.estado === k).length;
 
   const pill = (active) => ({
@@ -463,8 +465,9 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
           <div style={{ padding: 40, textAlign: 'center', color: '#6a717b', fontSize: 14 }}>Sin productos que coincidan con el filtro.</div>
         )}
         {filtered.map(e => {
-          const isPhone  = esPhone(e.categoria);
-          const isCons   = esConsola(e.categoria);
+          const eDef     = getCatDef(e.categoria);
+          const isPhone  = eDef.tieneIMEI;
+          const isCons   = eDef.tieneControles;
           const batC = (!isCons && e.bat) ? batColor(e.bat) : null;
           const tieneDefectos = e.defectos && e.defectos.trim().length > 0;
           const isPending = pendingDelete === e.id;

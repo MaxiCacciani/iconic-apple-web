@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fARS, fUSD, TC } from '../data/data.js';
+import { fARS, fUSD, TC } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });

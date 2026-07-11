@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase.js';
 import * as db from './lib/db.js';
-import { TC as TC_DEFAULT, esPhone } from './data/data.js';
+import { esPhone } from './data/data.js';
+import { TC as TC_DEFAULT } from './lib/utils.js';
 import Header from './components/Header.jsx';
 import Toast from './components/Toast.jsx';
 import Login from './screens/Login.jsx';
@@ -125,15 +126,7 @@ export default function App() {
       return nuevo;
     } catch (e) {
       showToast('Error al registrar cliente: ' + e.message);
-      const fallback = {
-        id: 'local_' + Date.now(),
-        nombre: data.nombre,
-        inicial: data.nombre.trim()[0].toUpperCase(),
-        dni: data.dni || '', tel: data.tel || '', loc: data.loc || '',
-        desde: data.desde || '', compras: [], plan: null, reclamos: [],
-      };
-      setClientes(prev => [...prev, fallback]);
-      return fallback;
+      return null;
     }
   };
 
@@ -199,27 +192,42 @@ export default function App() {
   const handleConfirmVenta = async (ventaData) => {
     try {
       const nueva = await db.createVenta(ventaData);
+
       // Generar cuotas si corresponde
       if (ventaData.modalidad === 'cuotas') {
-        const nuevosC = await db.generateCobros(nueva.id, ventaData);
-        if (nuevosC) setCobros(prev => [...prev, ...nuevosC]);
-        // Recargar cobros para tener los IDs correctos
-        db.fetchCobros().then(cbs => setCobros(cbs));
+        try {
+          await db.generateCobros(nueva.id, ventaData);
+          const cbs = await db.fetchCobros();
+          setCobros(cbs);
+        } catch {
+          showToast('Venta registrada, pero hubo un error al generar las cuotas. Revisá Cobros.');
+        }
       }
-      // Actualizar equipos vendidos (soporta carrito multi-item via lineas)
-      const lineasVenta = ventaData.lineas && ventaData.lineas.length > 0 ? ventaData.lineas : (ventaData.equipoId ? [{ equipoId: ventaData.equipoId, cantidad: 1 }] : []);
+
+      // Actualizar equipos vendidos — best-effort: la venta ya está confirmada
+      const lineasVenta = ventaData.lineas?.length > 0
+        ? ventaData.lineas
+        : ventaData.equipoId ? [{ equipoId: ventaData.equipoId, cantidad: 1 }] : [];
+
+      let stockError = false;
       for (const l of lineasVenta) {
         const eid = l.equipoId;
         if (!eid) continue;
         const eq = equipos.find(e => e.id === eid);
         if (!eq) continue;
         const qtySold = l.cantidad || 1;
-        if (!esPhone(eq.categoria) && eq.cantidad > qtySold) {
-          await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - qtySold });
-        } else {
-          await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
+        try {
+          if (!esPhone(eq.categoria) && eq.cantidad > qtySold) {
+            await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - qtySold });
+          } else {
+            await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
+          }
+        } catch {
+          stockError = true;
         }
       }
+
+      // Actualizar estado local del stock independientemente de los errores de BD
       setEquipos(prev => prev.map(e => {
         const l = lineasVenta.find(lv => lv.equipoId === e.id);
         if (!l) return e;
@@ -227,13 +235,24 @@ export default function App() {
         if (!esPhone(e.categoria) && e.cantidad > qty) return { ...e, cantidad: e.cantidad - qty };
         return { ...e, estado: 'vendido' };
       }));
+
       // Agregar equipo de canje al stock
       if (ventaData.canje && ventaData.canjeEquipoData) {
-        const eqCanje = await db.createEquipo(ventaData.canjeEquipoData);
-        setEquipos(prev => [eqCanje, ...prev]);
+        try {
+          const eqCanje = await db.createEquipo(ventaData.canjeEquipoData);
+          setEquipos(prev => [eqCanje, ...prev]);
+        } catch {
+          showToast('Venta registrada. El equipo de canje no se pudo agregar al stock — cargalo manualmente.');
+        }
       }
+
       setVentas(prev => [nueva, ...prev]);
-      showToast('Venta registrada con éxito');
+
+      if (stockError) {
+        showToast('Venta registrada. Error al actualizar el stock — revisá el estado de los equipos.');
+      } else {
+        showToast('Venta registrada con éxito');
+      }
       setTimeout(() => go('ventas'), 300);
     } catch (e) {
       showToast('Error al registrar venta: ' + e.message);
@@ -298,6 +317,7 @@ export default function App() {
     try {
       await db.deleteVenta(id);
       setVentas(prev => prev.filter(v => v.id !== id));
+      setCobros(prev => prev.filter(c => c.ventaId !== id));
       showToast('Venta eliminada');
     } catch (e) {
       showToast('Error al eliminar venta: ' + e.message);
@@ -412,7 +432,7 @@ export default function App() {
         {visited.has('resumen')  && <div style={{ display: screen === 'resumen'  ? 'block' : 'none' }}><Resumen equipos={equipos} ventas={ventas} cobros={cobros} reservas={reservas} tc={tc} onUpdateTC={updateTC} onGoCobros={() => go('cobros')} /></div>}
         {visited.has('stock')    && <div style={{ display: screen === 'stock'    ? 'block' : 'none' }}><Stock equipos={equipos} tc={tc} onAdd={addEquipo} onUpdate={updateEquipo} onDelete={deleteEquipo} /></div>}
         {visited.has('venta')    && <div style={{ display: screen === 'venta'    ? 'block' : 'none' }}><Venta equipos={equipos} clientes={clientesConCompras} tc={tc} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} /></div>}
-        {visited.has('cobros')   && <div style={{ display: screen === 'cobros'   ? 'block' : 'none' }}><Cobros cobros={cobros} ventas={ventas} onUpdateEstado={updateCobroEstado} /></div>}
+        {visited.has('cobros')   && <div style={{ display: screen === 'cobros'   ? 'block' : 'none' }}><Cobros cobros={cobros} ventas={ventas} onUpdateEstado={updateCobroEstado} onRefresh={() => db.fetchCobros().then(setCobros).catch(() => {})} /></div>}
         {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
         {visited.has('clientes') && <div style={{ display: screen === 'clientes' ? 'block' : 'none' }}><Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} /></div>}
         {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}

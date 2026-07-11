@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { MONTH_ABBR } from '../data/data.js';
+import { MONTH_ABBR } from './utils.js';
 
 // ─── Helpers de fecha ────────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ function rowToVenta(r) {
   // garantia_vence: usa la columna si existe, si no la calcula como 1 año desde la fecha de venta
   let garantiaVence = r.garantia_vence || null;
   if (!garantiaVence && r.fecha) {
-    const [y, m, d] = r.fecha.split('-').map(Number);
+    const [y, m, d] = r.fecha.slice(0, 10).split('-').map(Number);
     const date = new Date(y, m - 1 + 3, d);
     garantiaVence = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
@@ -142,7 +142,7 @@ function rowToReserva(r) {
 }
 
 function rowToCobro(r) {
-  const [y, m, d] = r.fecha.split('-').map(Number);
+  const [y, m, d] = r.fecha.slice(0, 10).split('-').map(Number);
   return {
     id: r.id,
     ventaId: r.venta_id,
@@ -358,6 +358,7 @@ export async function updateReservaEstado(id, estado) {
 }
 
 export async function deleteVenta(id) {
+  await supabase.from('cobros').delete().eq('venta_id', id);
   const { error } = await supabase.from('ventas').delete().eq('id', id);
   if (error) throw error;
 }
@@ -412,28 +413,34 @@ export async function updateCobroEstado(id, estado) {
 export async function generateCobros(ventaId, ventaData) {
   if (!ventaData.cuotas || !ventaData.cuotaMonto) return [];
   const today = localDateISO();
-  const base = (i) => ({
-    venta_id: ventaId,
-    cliente_nombre: ventaData.cliente,
-    equipo_label: ventaData.equipo,
-    monto: ventaData.cuotaMonto,
-    fecha: addMonthsISO(today, i),
-    estado: 'pendiente',
-  });
+  const { primeraCuotaHoy } = ventaData;
+  const makeRow = (i) => {
+    const esHoy = primeraCuotaHoy && i === 0;
+    return {
+      venta_id: ventaId,
+      cliente_id: ventaData.clienteId ?? null,
+      cliente_nombre: ventaData.cliente,
+      equipo_label: ventaData.equipo,
+      monto: ventaData.cuotaMonto,
+      fecha: esHoy ? today : addMonthsISO(today, primeraCuotaHoy ? i : i + 1),
+      estado: esHoy ? 'cobrada' : 'pendiente',
+    };
+  };
+
   const rows = Array.from({ length: ventaData.cuotas }, (_, i) => ({
-    ...base(i + 1),
+    ...makeRow(i),
     numero_cuota: i + 1,
     total_cuotas: ventaData.cuotas,
   }));
 
-  let { data, error } = await supabase.from('cobros').insert(rows).select();
+  let { error } = await supabase.from('cobros').insert(rows);
   if (error?.message?.includes('numero_cuota') || error?.message?.includes('total_cuotas')) {
     // columnas opcionales aún no migradas — insertar sin ellas
-    const rowsBase = Array.from({ length: ventaData.cuotas }, (_, i) => base(i + 1));
-    ({ data, error } = await supabase.from('cobros').insert(rowsBase).select());
+    const rowsBase = Array.from({ length: ventaData.cuotas }, (_, i) => makeRow(i));
+    ({ error } = await supabase.from('cobros').insert(rowsBase));
   }
   if (error) throw error;
-  return (data || []).map(rowToCobro);
+  return [];
 }
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────

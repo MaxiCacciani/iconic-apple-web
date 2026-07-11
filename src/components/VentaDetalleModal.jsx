@@ -1,5 +1,6 @@
 import Modal from './Modal.jsx';
-import { fARS, fUSD, esPhone } from '../data/data.js';
+import { esPhone } from '../data/data.js';
+import { fARS, fUSD } from '../lib/utils.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -96,10 +97,10 @@ export default function VentaDetalleModal({ venta, onClose }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
         <Row label="Método" value={venta.metodo || '—'} />
         {venta.modalidad === 'cuotas' && (
-          <Row label="Cuotas" value={`${venta.cuotas} x ${fARS(venta.cuotaMonto || 0)}`} />
+          <Row label="Cuotas" value={`${venta.cuotas} x ${fUSD(venta.cuotaMonto || 0)}`} />
         )}
         {venta.modalidad === 'cuotas' && venta.anticipo > 0 && (
-          <Row label="Anticipo" value={fARS(venta.anticipo)} />
+          <Row label="Anticipo" value={fUSD(venta.anticipo)} />
         )}
         {venta.modalidad === 'apartado' && venta.anticipo > 0 && (
           <Row label="Seña" value={fARS(venta.anticipo)} />
