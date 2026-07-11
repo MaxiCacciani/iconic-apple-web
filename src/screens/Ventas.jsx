@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { fARS, fUSD, TC as TC_ACTUAL } from '../data/data.js';
+import { fARS, fUSD } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
 
@@ -189,7 +189,7 @@ async function validateGarantiaFiles(files) {
   return null;
 }
 
-export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }) {
+export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onError }) {
   const [q, setQ] = useState('');
   const [filtroMod, setFiltroMod] = useState('todas');
   const [filtroMet, setFiltroMet] = useState('todos');
@@ -343,7 +343,7 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
         <StatCard label="Total ventas" value={ventas.length} sub="registros históricos" />
-        <StatCard label="Ingresos total" value={fUSD(totalUSD)} sub={fARS(totalUSD * TC_ACTUAL) + ' al TC actual'} />
+        <StatCard label="Ingresos total" value={fUSD(totalUSD)} sub={fARS(totalUSD * tc) + ' al TC actual'} />
         <StatCard
           label="Ganancia registrada"
           value={totalCosto > 0 ? fUSD(totalGanancia) : '—'}
@@ -420,7 +420,7 @@ export default function Ventas({ ventas, onUpdateVenta, onDeleteVenta, onError }
       {display.map((v, i) => {
         const metC = METODO_COLORS[v.metodo] || METODO_COLORS['Efectivo'];
         const esNueva = i === 0 && v.id && v.id.startsWith('new_');
-        const tcVenta = v.tc || TC_ACTUAL;
+        const tcVenta = v.tc || tc;
         const ganancia = v.costo ? (v.usd - v.costo) : null;
         const margen = v.costo && v.costo > 0 ? Math.round(((v.usd - v.costo) / v.costo) * 100) : null;
         const vendedor = v.vendedorNumero ? vendedores.find(vd => vd.numero === v.vendedorNumero) : null;
