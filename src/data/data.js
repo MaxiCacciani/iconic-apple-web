@@ -6,12 +6,15 @@ export const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Ju
 export const MONTH_ABBR  = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 export const DAY_NAMES   = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 
-export const CATEGORIAS_PHONE = ['iPhone','iPad','Mac'];
+export const CATEGORIAS_PHONE   = ['iPhone','iPad','Mac'];
+export const CATEGORIAS_CONSOLA = ['Xbox','PlayStation','Nintendo'];
 export const CATEGORIAS = [
   'iPhone','iPad','Mac','Apple Watch','AirPods',
+  'Xbox','PlayStation','Nintendo',
   'Vidrio templado','Cargador','Cable','Funda/Case','Otro accesorio',
 ];
-export const esPhone = (cat) => CATEGORIAS_PHONE.includes(cat);
+export const esPhone   = (cat) => CATEGORIAS_PHONE.includes(cat);
+export const esConsola = (cat) => CATEGORIAS_CONSOLA.includes(cat);
 
 export const MODELOS_IPHONE = [
   'iPhone 17 Pro Max','iPhone 17 Pro','iPhone 17 Plus','iPhone 17',
@@ -41,10 +44,24 @@ export const MODELOS_WATCH = [
 export const MODELOS_AIRPODS = [
   'AirPods Pro (2ª gen)','AirPods 4 (ANC)','AirPods 4','AirPods (3ª gen)','AirPods Max (USB-C)',
 ];
+export const MODELOS_XBOX = [
+  'Xbox Series X','Xbox Series S','Xbox One X','Xbox One S','Xbox One','Xbox 360 Slim','Xbox 360',
+];
+export const MODELOS_PS = [
+  'PlayStation 5 (PS5)','PS5 Slim','PS5 Slim Digital Edition','PS5 Digital Edition',
+  'PS4 Pro','PS4 Slim','PlayStation 4 (PS4)',
+  'PS3 Slim','PS3 Fat','PlayStation 2 (PS2)',
+];
+export const MODELOS_NINTENDO = [
+  'Nintendo Switch OLED','Nintendo Switch','Nintendo Switch Lite',
+  'Nintendo 3DS XL','Nintendo 3DS','Nintendo DS Lite','Wii U','Wii',
+];
 
 export const CAPS_PHONE = ['64 GB','128 GB','256 GB','512 GB','1 TB'];
 export const CAPS_IPAD  = ['64 GB','128 GB','256 GB','512 GB','1 TB','2 TB'];
 export const CAPS_MAC   = ['256 GB','512 GB','1 TB','2 TB'];
+export const CAPS_XBOX  = ['512 GB','1 TB','2 TB'];
+export const CAPS_PS    = ['Edición Disco','Edición Digital','825 GB','1 TB'];
 
 export const COLORES_IPHONE = [
   'Titanio Natural','Titanio Negro','Titanio Blanco','Titanio Azul','Titanio Desierto',
@@ -54,31 +71,42 @@ export const COLORES_IPHONE = [
 ];
 export const COLORES_IPAD = ['Plata','Gris Espacial','Azul','Morado','Rosa','Amarillo','Verde'];
 export const COLORES_MAC  = ['Plata','Gris Espacial','Dorado','Azul Medianoche','Luz de Estrella','Verde','Morado','Naranja'];
-export const COLORES_WATCH = ['Plata','Medianoche','Luz de Estrella','Rojo (Product Red)','Titanio Natural','Titanio Negro'];
+export const COLORES_WATCH    = ['Plata','Medianoche','Luz de Estrella','Rojo (Product Red)','Titanio Natural','Titanio Negro'];
+export const COLORES_XBOX     = ['Negro Carbon','Blanco Robot','Azul Shock','Rojo Pulse','Verde','Edición Especial'];
+export const COLORES_PS       = ['Blanco','Negro Midnight','Rojo Volcano','Azul Cobalt','Plata Natural','Edición Especial'];
+export const COLORES_NINTENDO = ['Blanco / Rojo Neón','Negro / Gris','Azul Neón / Rojo Neón','Coral','Azul','Gris','Turquesa','Edición Especial'];
 
 export const PROVEEDORES = [
   'Plan canje','Importadora BsAs','Distribuidor local','Importación personal','Mayorista Córdoba',
 ];
 
 export function getModelos(cat) {
-  if (cat === 'iPhone') return MODELOS_IPHONE;
-  if (cat === 'iPad')   return MODELOS_IPAD;
-  if (cat === 'Mac')    return MODELOS_MAC;
+  if (cat === 'iPhone')      return MODELOS_IPHONE;
+  if (cat === 'iPad')        return MODELOS_IPAD;
+  if (cat === 'Mac')         return MODELOS_MAC;
   if (cat === 'Apple Watch') return MODELOS_WATCH;
-  if (cat === 'AirPods') return MODELOS_AIRPODS;
+  if (cat === 'AirPods')     return MODELOS_AIRPODS;
+  if (cat === 'Xbox')        return MODELOS_XBOX;
+  if (cat === 'PlayStation') return MODELOS_PS;
+  if (cat === 'Nintendo')    return MODELOS_NINTENDO;
   return null;
 }
 export function getCaps(cat) {
-  if (cat === 'iPhone') return CAPS_PHONE;
-  if (cat === 'iPad')   return CAPS_IPAD;
-  if (cat === 'Mac')    return CAPS_MAC;
+  if (cat === 'iPhone')      return CAPS_PHONE;
+  if (cat === 'iPad')        return CAPS_IPAD;
+  if (cat === 'Mac')         return CAPS_MAC;
+  if (cat === 'Xbox')        return CAPS_XBOX;
+  if (cat === 'PlayStation') return CAPS_PS;
   return null;
 }
 export function getColores(cat) {
-  if (cat === 'iPhone') return COLORES_IPHONE;
-  if (cat === 'iPad')   return COLORES_IPAD;
-  if (cat === 'Mac')    return COLORES_MAC;
+  if (cat === 'iPhone')      return COLORES_IPHONE;
+  if (cat === 'iPad')        return COLORES_IPAD;
+  if (cat === 'Mac')         return COLORES_MAC;
   if (cat === 'Apple Watch') return COLORES_WATCH;
+  if (cat === 'Xbox')        return COLORES_XBOX;
+  if (cat === 'PlayStation') return COLORES_PS;
+  if (cat === 'Nintendo')    return COLORES_NINTENDO;
   return null;
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { esPhone, fARS, fUSD, batColor, CATEGORIAS, getModelos, getCaps, getColores } from '../data/data.js';
+import { esPhone, esConsola, fARS, fUSD, batColor, CATEGORIAS, getModelos, getCaps, getColores } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 import { validateDNI, validateTel, validateSenia, validateAnticipo, validateCanjeValor, validateCuotas, validateIMEI, validateBat, isDNIDuplicate } from '../lib/validation.js';
 
@@ -112,11 +112,11 @@ function EquipoPicker({ equipos, carrito, onAdd, onRemoveAll, onDecrement }) {
   const [filtroTipo, setFiltroTipo] = useState('todos');
 
   const disp = equipos.filter(e => e.estado === 'disponible');
-  const tiposDisp = ['todos', ...Array.from(new Set(disp.map(e => esPhone(e.categoria) ? e.categoria : 'Accesorios')))];
+  const tiposDisp = ['todos', ...Array.from(new Set(disp.map(e => esPhone(e.categoria) ? e.categoria : esConsola(e.categoria) ? e.categoria : 'Accesorios')))];
   const qLow = q.trim().toLowerCase();
   const filtrados = disp.filter(e => {
     if (filtroCond !== 'todos' && e.cond !== filtroCond) return false;
-    const tipoEq = esPhone(e.categoria) ? e.categoria : 'Accesorios';
+    const tipoEq = esPhone(e.categoria) ? e.categoria : esConsola(e.categoria) ? e.categoria : 'Accesorios';
     if (filtroTipo !== 'todos' && tipoEq !== filtroTipo) return false;
     if (!qLow) return true;
     return (e.modelo + e.imei + e.color + e.cap + e.categoria).toLowerCase().includes(qLow);
@@ -331,6 +331,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [canjeCond, setCanjeCond] = useState('Usado');
   const [canjeImei, setCanjeImei] = useState('');
   const [canjeBat, setCanjeBat] = useState('');
+  const [canjeControles, setCanjeControles] = useState('1');
+  const [canjeExtras, setCanjeExtras] = useState('');
   const [canjeValor, setCanjeValor] = useState('');
   const [packs, setPacks] = useState(loadPacks);
   const [packModal, setPackModal] = useState(null);
@@ -362,6 +364,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     setCanjeCond('Usado');
     setCanjeImei('');
     setCanjeBat('');
+    setCanjeControles('1');
+    setCanjeExtras('');
     setCanjeValor('');
     setPackMsg('');
   };
@@ -454,8 +458,13 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const cuotaMonto = esCuotas && cuotas ? Math.round(aFinanciar / cuotas) : 0;
   const saldoContado = Math.max(0, vPrecioARS - seniaNum);
   const saldoTrasCanje = Math.max(0, vPrecioARS - canjeNum * tc);
-  const canjeIsPhone = esPhone(canjeCategoria);
-  const canjeEquipoLabel = [canjeModelo, canjeCap, canjeColor].filter(Boolean).join(' · ');
+  const canjeIsPhone  = esPhone(canjeCategoria);
+  const canjeIsConsola = esConsola(canjeCategoria);
+  const canjeControlesNum = parseInt(canjeControles) || 0;
+  const canjeEquipoLabel = [
+    canjeModelo, canjeCap, canjeColor,
+    canjeIsConsola && canjeControlesNum > 0 ? `${canjeControlesNum} control${canjeControlesNum !== 1 ? 'es' : ''}` : null,
+  ].filter(Boolean).join(' · ');
   const puedeApartado = carrito.length <= 1;
   const hayRegalos = carrito.some(c => c.esRegalo);
 
@@ -519,8 +528,12 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
       canjeEquipoData: canje && canjeModelo ? {
         categoria: canjeCategoria, modelo: canjeModelo, cap: canjeCap || null,
         color: canjeColor || null, cond: canjeCond,
-        bat: canjeBat ? parseInt(canjeBat, 10) : null, imei: canjeImei || '',
-        defectos: '', usd: canjeNum, costo: canjeNum,
+        bat: canjeIsPhone ? (canjeBat ? parseInt(canjeBat, 10) : null)
+           : canjeIsConsola ? canjeControlesNum
+           : null,
+        imei: canjeIsPhone ? (canjeImei || '') : '',
+        defectos: canjeIsConsola ? (canjeExtras || '') : '',
+        usd: canjeNum, costo: canjeNum,
         proveedor: 'Plan canje', estado: 'disponible', cantidad: 1,
       } : null,
     };
@@ -742,7 +755,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <span style={stepLabel()}>04</span>
               <span style={{ fontSize: 15.5, fontWeight: 600 }}>Método de pago</span>
             </div>
-            <button onClick={() => { setCanje(!canje); setCanjeCategoria('iPhone'); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); setCanjeCond('Usado'); setCanjeImei(''); setCanjeBat(''); setCanjeValor(''); }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '13px 16px', borderRadius: 12, border: `1px solid ${canje ? 'rgba(166,175,186,0.5)' : 'rgba(231,238,246,0.1)'}`, background: canje ? 'rgba(166,175,186,0.1)' : 'rgba(231,238,246,0.02)', cursor: 'pointer', marginBottom: 16 }}>
+            <button onClick={() => { setCanje(!canje); setCanjeCategoria('iPhone'); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); setCanjeCond('Usado'); setCanjeImei(''); setCanjeBat(''); setCanjeControles('1'); setCanjeExtras(''); setCanjeValor(''); }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '13px 16px', borderRadius: 12, border: `1px solid ${canje ? 'rgba(166,175,186,0.5)' : 'rgba(231,238,246,0.1)'}`, background: canje ? 'rgba(166,175,186,0.1)' : 'rgba(231,238,246,0.02)', cursor: 'pointer', marginBottom: 16 }}>
               <span style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${canje ? '#a6afba' : 'rgba(231,238,246,0.25)'}`, background: canje ? 'rgba(166,175,186,0.3)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {canje && <span style={{ fontSize: 11, color: '#eef2f7', fontWeight: 700 }}>✓</span>}
               </span>
@@ -756,13 +769,13 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <div style={{ padding: 18, borderRadius: 13, border: '1px solid rgba(166,175,186,0.2)', background: 'rgba(166,175,186,0.04)', marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', color: '#6a717b' }}>Equipo entregado en canje</div>
                 <div><span style={CANJE_LB}>Categoría</span>
-                  <select value={canjeCategoria} onChange={e => { setCanjeCategoria(e.target.value); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); }} style={CANJE_SEL}>
+                  <select value={canjeCategoria} onChange={e => { setCanjeCategoria(e.target.value); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); setCanjeControles('1'); setCanjeExtras(''); }} style={CANJE_SEL}>
                     {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
-                <div><span style={CANJE_LB}>Modelo</span><CanjeCombo value={canjeModelo} onChange={setCanjeModelo} options={getModelos(canjeCategoria)} placeholder="ej. iPhone 13" /></div>
+                <div><span style={CANJE_LB}>Modelo</span><CanjeCombo value={canjeModelo} onChange={setCanjeModelo} options={getModelos(canjeCategoria)} placeholder="ej. iPhone 13 / PS5" /></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div><span style={CANJE_LB}>Capacidad</span><CanjeCombo value={canjeCap} onChange={setCanjeCap} options={getCaps(canjeCategoria) || []} placeholder="ej. 128 GB" /></div>
+                  <div><span style={CANJE_LB}>{canjeIsConsola ? 'Edición / Almacenamiento' : 'Capacidad'}</span><CanjeCombo value={canjeCap} onChange={setCanjeCap} options={getCaps(canjeCategoria) || []} placeholder={canjeIsConsola ? 'ej. Edición Disco' : 'ej. 128 GB'} /></div>
                   <div><span style={CANJE_LB}>Color</span><CanjeCombo value={canjeColor} onChange={setCanjeColor} options={getColores(canjeCategoria) || []} placeholder="ej. Negro" /></div>
                 </div>
                 <div><span style={CANJE_LB}>Condición</span>
@@ -774,6 +787,22 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                   <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 12 }}>
                     <div><span style={CANJE_LB}>IMEI</span><input value={canjeImei} onChange={e => setCanjeImei(e.target.value)} placeholder="350000000000000" style={CANJE_IN} /></div>
                     <div><span style={CANJE_LB}>Batería (%)</span><input type="text" inputMode="numeric" value={canjeBat} onChange={e => setCanjeBat(e.target.value.replace(/[^0-9]/g,''))} placeholder="ej. 87" style={CANJE_IN} /></div>
+                  </div>
+                )}
+                {canjeIsConsola && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: 12 }}>
+                    <div>
+                      <span style={CANJE_LB}>Controles</span>
+                      <select value={canjeControles} onChange={e => setCanjeControles(e.target.value)} style={CANJE_SEL}>
+                        {['0','1','2','3','4'].map(n => (
+                          <option key={n} value={n}>{n === '0' ? 'Sin controles' : `${n} control${n !== '1' ? 'es' : ''}`}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <span style={CANJE_LB}>Juegos / accesorios incluidos</span>
+                      <input value={canjeExtras} onChange={e => setCanjeExtras(e.target.value)} placeholder="ej. FIFA 25, HDMI, base de carga…" style={CANJE_IN} />
+                    </div>
                   </div>
                 )}
                 <div><span style={CANJE_LB}>Valor del equipo (USD) — será el costo en stock</span>

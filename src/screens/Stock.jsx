@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CATEGORIAS, esPhone, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
+import { CATEGORIAS, esPhone, esConsola, DEFECTOS_COMUNES, fARS, fUSD, batColor, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
 import Modal from '../components/Modal.jsx';
 import { validateIMEI, isIMEIDuplicate, validatePrecio, validateCosto, validateBat, validateCantidad } from '../lib/validation.js';
 
@@ -103,7 +103,8 @@ function StockModal({ initial, equipos, onSave, onClose }) {
     : { ...EMPTY_FORM }
   );
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const phone = esPhone(form.categoria);
+  const phone   = esPhone(form.categoria);
+  const consola = esConsola(form.categoria);
   const duplicado = !isEdit ? findDuplicateAccesorio(equipos, form) : null;
 
   const getErrors = () => {
@@ -136,7 +137,7 @@ function StockModal({ initial, equipos, onSave, onClose }) {
   const coloresList  = getColores(form.categoria);
 
   const handleCategoriaChange = (cat) => {
-    setForm(f => ({ ...f, categoria: cat, modelo: '', cap: '', color: '' }));
+    setForm(f => ({ ...f, categoria: cat, modelo: '', cap: '', color: '', bat: '', defectos: '' }));
   };
 
   const handleSave = () => {
@@ -145,7 +146,11 @@ function StockModal({ initial, equipos, onSave, onClose }) {
       ...form,
       usd: parseFloat(form.usd) || 0,
       costo: form.costo !== '' ? (parseFloat(form.costo) || null) : null,
-      bat: phone && form.cond === 'Usado' ? (parseInt(form.bat) || null) : null,
+      bat: phone && form.cond === 'Usado'
+        ? (parseInt(form.bat) || null)
+        : consola
+        ? (parseInt(form.bat) || 0)
+        : null,
       imei: phone ? (form.imei || '').replace(/[\s\-]/g, '') : '',
       cantidad: phone ? 1 : (parseInt(form.cantidad) || 1),
       proveedor: form.proveedor || '',
@@ -193,45 +198,76 @@ function StockModal({ initial, equipos, onSave, onClose }) {
         </div>
       </div>
 
-      <div style={{ ...row2, ...fieldWrap }}>
-        <div>
-          <FieldLabel>Condición</FieldLabel>
-          <FieldSelect value={form.cond} onChange={e => set('cond', e.target.value)}
-            options={[['Nuevo','Nuevo'],['Usado','Usado']]} />
-        </div>
-        {phone && form.cond === 'Usado' ? (
-          <div>
-            <FieldLabel>Batería (%)</FieldLabel>
-            <FieldInput type="number" value={form.bat} onChange={e => set('bat', e.target.value)} placeholder="85" />
+      {consola ? (
+        <>
+          <div style={{ ...row2, ...fieldWrap }}>
+            <div>
+              <FieldLabel>Condición</FieldLabel>
+              <FieldSelect value={form.cond} onChange={e => set('cond', e.target.value)}
+                options={[['Nuevo','Nuevo'],['Usado','Usado']]} />
+            </div>
+            <div>
+              <FieldLabel>Controles incluidos</FieldLabel>
+              <FieldSelect value={String(form.bat ?? '1')} onChange={e => set('bat', e.target.value)}
+                options={[['0','Sin controles'],['1','1 control'],['2','2 controles'],['3','3 controles'],['4','4 controles']]} />
+            </div>
           </div>
-        ) : !phone ? (
-          <div>
-            <FieldLabel>Cantidad</FieldLabel>
-            <FieldInput type="number" value={form.cantidad} onChange={e => set('cantidad', e.target.value)} placeholder="1" />
+          <div style={{ ...row2, ...fieldWrap }}>
+            <div>
+              <FieldLabel>Cantidad en stock</FieldLabel>
+              <FieldInput type="number" value={form.cantidad} onChange={e => set('cantidad', e.target.value)} placeholder="1" />
+            </div>
+            <div />
           </div>
-        ) : <div />}
-      </div>
+          <div style={fieldWrap}>
+            <FieldLabel>Juegos / accesorios incluidos (opcional)</FieldLabel>
+            <FieldInput value={form.defectos} onChange={e => set('defectos', e.target.value)}
+              placeholder="ej. FIFA 25, HDMI 2.1, base de carga…" />
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ ...row2, ...fieldWrap }}>
+            <div>
+              <FieldLabel>Condición</FieldLabel>
+              <FieldSelect value={form.cond} onChange={e => set('cond', e.target.value)}
+                options={[['Nuevo','Nuevo'],['Usado','Usado']]} />
+            </div>
+            {phone && form.cond === 'Usado' ? (
+              <div>
+                <FieldLabel>Batería (%)</FieldLabel>
+                <FieldInput type="number" value={form.bat} onChange={e => set('bat', e.target.value)} placeholder="85" />
+              </div>
+            ) : !phone ? (
+              <div>
+                <FieldLabel>Cantidad</FieldLabel>
+                <FieldInput type="number" value={form.cantidad} onChange={e => set('cantidad', e.target.value)} placeholder="1" />
+              </div>
+            ) : <div />}
+          </div>
 
-      {phone && (
-        <div style={fieldWrap}>
-          <FieldLabel>IMEI</FieldLabel>
-          <FieldInput value={form.imei} onChange={e => set('imei', e.target.value)} placeholder="356938 11 240517 4"
-            style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }} />
-        </div>
-      )}
-
-      {phone && form.cond === 'Usado' && (
-        <div style={fieldWrap}>
-          <FieldLabel>Desperfectos / detalles físicos (opcional)</FieldLabel>
-          <FieldSelect value={form.defectos || ''} onChange={e => set('defectos', e.target.value)}
-            options={[['', 'Sin desperfectos'], ...DEFECTOS_COMUNES.map(d => [d, d])]} />
-          {form.defectos && form.defectos !== '' && (
-            <div style={{ marginTop: 8 }}>
-              <FieldInput value={form.defectos} onChange={e => set('defectos', e.target.value)}
-                placeholder="Describí el desperfecto…" />
+          {phone && (
+            <div style={fieldWrap}>
+              <FieldLabel>IMEI</FieldLabel>
+              <FieldInput value={form.imei} onChange={e => set('imei', e.target.value)} placeholder="356938 11 240517 4"
+                style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }} />
             </div>
           )}
-        </div>
+
+          {phone && form.cond === 'Usado' && (
+            <div style={fieldWrap}>
+              <FieldLabel>Desperfectos / detalles físicos (opcional)</FieldLabel>
+              <FieldSelect value={form.defectos || ''} onChange={e => set('defectos', e.target.value)}
+                options={[['', 'Sin desperfectos'], ...DEFECTOS_COMUNES.map(d => [d, d])]} />
+              {form.defectos && form.defectos !== '' && (
+                <div style={{ marginTop: 8 }}>
+                  <FieldInput value={form.defectos} onChange={e => set('defectos', e.target.value)}
+                    placeholder="Describí el desperfecto…" />
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Precio, Costo y Margen */}
@@ -427,8 +463,9 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
           <div style={{ padding: 40, textAlign: 'center', color: '#6a717b', fontSize: 14 }}>Sin productos que coincidan con el filtro.</div>
         )}
         {filtered.map(e => {
-          const isPhone = esPhone(e.categoria);
-          const batC = e.bat ? batColor(e.bat) : null;
+          const isPhone  = esPhone(e.categoria);
+          const isCons   = esConsola(e.categoria);
+          const batC = (!isCons && e.bat) ? batColor(e.bat) : null;
           const tieneDefectos = e.defectos && e.defectos.trim().length > 0;
           const isPending = pendingDelete === e.id;
           return (
@@ -458,7 +495,7 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
                           <span style={{ fontSize: 12, color: batC, fontWeight: 500 }}>{e.bat}%</span>
                         </div>
                       )}
-                      {tieneDefectos && (
+                      {!isCons && tieneDefectos && (
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, marginTop: 5 }}>
                           <span style={{ fontSize: 11, color: '#d98a76', marginTop: 1, flexShrink: 0 }}>⚠</span>
                           <span style={{ fontSize: 11, color: '#c09080', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{e.defectos}</span>
@@ -467,6 +504,18 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
                     </div>
                   )
                 }
+                {isCons && (
+                  <div style={{ marginTop: e.cond === 'Nuevo' ? 6 : 6 }}>
+                    {e.bat > 0 && (
+                      <span style={{ fontSize: 12, color: '#9b93d6', padding: '2px 8px', borderRadius: 5, background: 'rgba(155,147,214,0.1)' }}>
+                        {e.bat} control{e.bat !== 1 ? 'es' : ''}
+                      </span>
+                    )}
+                    {tieneDefectos && (
+                      <div style={{ fontSize: 11.5, color: '#828a94', marginTop: 4, lineHeight: 1.4 }}>{e.defectos}</div>
+                    )}
+                  </div>
+                )}
               </div>
               {/* IMEI / Stock */}
               <div>
