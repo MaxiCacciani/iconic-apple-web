@@ -144,9 +144,11 @@ function EquipoPicker({ equipos, carrito, onAdd, onRemoveAll, onDecrement }) {
           const isPhone = esPhone(e.categoria);
           const cantActual = cartSlots.reduce((s, c) => s + (c.cantidadVenta || 1), 0);
           const puedeMas = cantActual < e.cantidad;
+          const isCons = esConsola(e.categoria);
           const tieneDefectos = e.defectos && e.defectos.trim().length > 0;
+          const bordeCard = enCarrito ? 'rgba(130,179,157,0.45)' : (!isCons && tieneDefectos) ? 'rgba(217,138,118,0.25)' : 'rgba(231,238,246,0.08)';
           return (
-            <div key={e.id} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 14, padding: '13px 16px', borderRadius: 12, border: `1px solid ${enCarrito ? 'rgba(130,179,157,0.45)' : tieneDefectos ? 'rgba(217,138,118,0.25)' : 'rgba(231,238,246,0.08)'}`, background: enCarrito ? 'rgba(130,179,157,0.05)' : 'rgba(231,238,246,0.02)' }}>
+            <div key={e.id} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 14, padding: '13px 16px', borderRadius: 12, border: `1px solid ${bordeCard}`, background: enCarrito ? 'rgba(130,179,157,0.05)' : 'rgba(231,238,246,0.02)' }}>
               {enCarrito && <span style={{ position: 'absolute', left: 0, top: 12, bottom: 12, width: 3, borderRadius: '0 3px 3px 0', background: '#82b39d' }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -158,7 +160,9 @@ function EquipoPicker({ equipos, carrito, onAdd, onRemoveAll, onDecrement }) {
                 <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 3 }}>{e.color}</div>
                 {isPhone && e.imei && <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 7 }}><span style={{ ...MONO(10), color: '#6a717b', letterSpacing: 1, textTransform: 'uppercase' }}>IMEI</span><span style={{ ...MONO(12.5, '#a6afba') }}>{e.imei}</span></div>}
                 {isPhone && e.cond === 'Usado' && e.bat && <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 7 }}><span style={{ ...MONO(10), color: '#6a717b', letterSpacing: 1, textTransform: 'uppercase' }}>Batería</span><BatBadge bat={e.bat} /></div>}
-                {tieneDefectos && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 7, padding: '6px 10px', borderRadius: 8, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.18)' }}><span style={{ fontSize: 11 }}>⚠</span><span style={{ fontSize: 12, color: '#e6ab98' }}>{e.defectos}</span></div>}
+                {isCons && e.bat > 0 && <div style={{ fontSize: 12, color: '#9b93d6', marginTop: 5 }}>{e.bat} control{e.bat !== 1 ? 'es' : ''}</div>}
+                {isCons && tieneDefectos && <div style={{ fontSize: 12, color: '#828a94', marginTop: 3 }}>{e.defectos}</div>}
+                {!isCons && tieneDefectos && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 7, padding: '6px 10px', borderRadius: 8, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.18)' }}><span style={{ fontSize: 11 }}>⚠</span><span style={{ fontSize: 12, color: '#e6ab98' }}>{e.defectos}</span></div>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 7, flexShrink: 0 }}>
                 <span style={{ fontSize: 15, fontWeight: 600, color: '#eef2f7', whiteSpace: 'nowrap' }}>{fUSD(e.usd)}</span>
@@ -860,6 +864,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {carrito.map((e, i) => {
                   const isPhone = esPhone(e.categoria);
+                  const isCons  = esConsola(e.categoria);
                   const precioMostrar = e.esRegalo ? 0 : effPrecio(e) * (e.cantidadVenta || 1);
                   return (
                     <div key={e.id} style={{ paddingBottom: carrito.length > 1 && i < carrito.length - 1 ? 12 : 0, borderBottom: carrito.length > 1 && i < carrito.length - 1 ? '1px solid rgba(231,238,246,0.06)' : 'none' }}>
@@ -875,8 +880,10 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                       </div>
                       <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 1 }}>{[e.cap, e.color].filter(Boolean).join(' · ')}</div>
                       {isPhone && e.imei && <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}><span style={{ ...MONO(10, '#6a717b'), letterSpacing: 1, textTransform: 'uppercase' }}>IMEI</span><span style={{ ...MONO(11.5, '#a6afba') }}>{e.imei}</span></div>}
-                      {e.cond === 'Usado' && e.bat && <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5 }}><span style={{ ...MONO(10, '#6a717b'), letterSpacing: 1, textTransform: 'uppercase' }}>Bat.</span><BatBadge bat={e.bat} /></div>}
-                      {e.defectos && <div style={{ marginTop: 6, padding: '5px 8px', borderRadius: 7, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.2)', fontSize: 11.5, color: '#e6ab98' }}>⚠ {e.defectos}</div>}
+                      {isPhone && e.cond === 'Usado' && e.bat && <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5 }}><span style={{ ...MONO(10, '#6a717b'), letterSpacing: 1, textTransform: 'uppercase' }}>Bat.</span><BatBadge bat={e.bat} /></div>}
+                      {isCons && e.bat > 0 && <div style={{ fontSize: 12, color: '#9b93d6', marginTop: 4 }}>{e.bat} control{e.bat !== 1 ? 'es' : ''}</div>}
+                      {isCons && e.defectos && <div style={{ fontSize: 12, color: '#828a94', marginTop: 2 }}>{e.defectos}</div>}
+                      {!isCons && e.defectos && <div style={{ marginTop: 6, padding: '5px 8px', borderRadius: 7, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.2)', fontSize: 11.5, color: '#e6ab98' }}>⚠ {e.defectos}</div>}
                     </div>
                   );
                 })}
