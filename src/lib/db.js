@@ -67,7 +67,7 @@ function rowToVenta(r) {
   let garantiaVence = r.garantia_vence || null;
   if (!garantiaVence && r.fecha) {
     const [y, m, d] = r.fecha.slice(0, 10).split('-').map(Number);
-    const date = new Date(y, m - 1 + 12, d);
+    const date = new Date(y, m - 1 + 3, d);
     garantiaVence = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
   return {
