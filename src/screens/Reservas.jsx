@@ -1,45 +1,50 @@
 import { useState } from 'react';
-import { fARS, fUSD, TC } from '../lib/utils.js';
+import { fARS, fUSD } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
-function ConvertirModal({ reserva, equipos, onConfirm, onClose }) {
-  const saldoPrecio = reserva.usd * TC;
-  const saldoRestante = Math.max(0, saldoPrecio - reserva.sena);
-  const [metodo, setMetodo] = useState('Transferencia');
-  const [modalidad, setModalidad] = useState('contado');
-  const [cuotas, setCuotas] = useState(6);
+// tc: tipo de cambio del día, recibido desde App para no usar el valor constante
+function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
+  // Saldo en USD: el precio ya está en USD; la seña es ARS, la convertimos al TC actual
+  const senaUSD        = tc > 0 ? reserva.sena / tc : 0;
+  const saldoUSD       = Math.max(0, reserva.usd - senaUSD);
+  const saldoARS       = saldoUSD * tc;
+
+  const [metodo, setMetodo]         = useState('Transferencia');
+  const [modalidad, setModalidad]   = useState('contado');
+  const [cuotas, setCuotas]         = useState(6);
   const [cuotasCustom, setCuotasCustom] = useState(false);
-  const [anticipo, setAnticipo] = useState('');
+  const [anticipo, setAnticipo]     = useState('');
 
   const equipoRef = reserva.equipoId ? equipos.find(e => e.id === reserva.equipoId) : null;
 
-  const antNum = parseInt(anticipo || '0', 10) || 0;
-  const aFinanciarTotal = Math.max(0, saldoRestante - antNum);
-  const cuotaMonto = modalidad === 'cuotas' && cuotas ? Math.round(aFinanciarTotal / cuotas) : 0;
+  const antNum      = parseFloat(anticipo || '0') || 0;
+  const aFinanciar  = Math.max(0, saldoUSD - antNum);
+  const cuotaMonto  = modalidad === 'cuotas' && cuotas ? Math.round(aFinanciar / cuotas) : 0;
 
   const handleConfirm = () => {
     const equipoLabel = [reserva.equipo, reserva.spec].filter(Boolean).join(' · ');
     onConfirm({
-      equipoId: reserva.equipoId || null,
-      clienteId: reserva.clienteId || null,
-      equipo: equipoLabel,
-      imei: equipoRef?.imei || '',
-      categoria: equipoRef?.categoria || '',
-      cliente: reserva.cliente,
-      usd: reserva.usd,
-      costo: equipoRef?.costo || null,
-      tc: TC,
-      modalidad: modalidad === 'cuotas' ? 'cuotas' : 'contado',
-      cuotas: modalidad === 'cuotas' ? cuotas : null,
-      anticipo: modalidad === 'cuotas' ? antNum : null,
+      equipoId:    reserva.equipoId || null,
+      clienteId:   reserva.clienteId || null,
+      equipo:      equipoLabel,
+      imei:        equipoRef?.imei || '',
+      categoria:   equipoRef?.categoria || '',
+      cliente:     reserva.cliente,
+      usd:         reserva.usd,
+      costo:       equipoRef?.costo || null,
+      tc,
+      modalidad:   modalidad === 'cuotas' ? 'cuotas' : 'contado',
+      cuotas:      modalidad === 'cuotas' ? cuotas : null,
+      anticipo:    modalidad === 'cuotas' ? antNum : null,
       metodo,
-      cuotaMonto: modalidad === 'cuotas' ? cuotaMonto : null,
-      canje: false,
+      cuotaMonto:  modalidad === 'cuotas' ? cuotaMonto : null,
+      primeraCuotaHoy: false,
+      canje:       false,
       canjeEquipo: null,
-      canjeValor: null,
+      canjeValor:  null,
     });
   };
 
@@ -68,7 +73,7 @@ function ConvertirModal({ reserva, equipos, onConfirm, onClose }) {
           </div>
           <div>
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>Saldo pendiente</div>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#9ec6ec' }}>{fARS(saldoRestante)}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#9ec6ec' }}>{fUSD(saldoUSD)} <span style={{ fontSize: 11, color: '#6a717b' }}>({fARS(saldoARS)})</span></div>
           </div>
         </div>
       </div>
@@ -112,13 +117,13 @@ function ConvertirModal({ reserva, equipos, onConfirm, onClose }) {
           )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'rgba(116,168,214,0.06)', border: '1px solid rgba(116,168,214,0.15)' }}>
             <span style={{ fontSize: 13, color: '#a6afba' }}>Cuota mensual</span>
-            <span style={{ fontSize: 15, fontWeight: 600, color: '#9ec6ec' }}>{cuotas > 0 ? fARS(cuotaMonto) : '—'}</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#9ec6ec' }}>{cuotas > 0 ? fUSD(cuotaMonto) : '—'}</span>
           </div>
           <div style={{ marginTop: 12 }}>
-            <span style={MONO_L}>Anticipo adicional (ARS, opcional)</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', ...inputBase, padding: '10px 14px' }}>
-              <span style={{ color: '#828a94' }}>$</span>
-              <input type="text" inputMode="numeric" value={anticipo} onChange={e => setAnticipo(e.target.value.replace(/[^0-9]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 14 }} />
+            <span style={MONO_L}>Anticipo adicional (USD, opcional)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', ...inputBase }}>
+              <span style={{ color: '#828a94' }}>US$</span>
+              <input type="text" inputMode="decimal" value={anticipo} onChange={e => setAnticipo(e.target.value.replace(/[^0-9.]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 14 }} />
             </div>
           </div>
         </div>
@@ -148,7 +153,7 @@ function ConvertirModal({ reserva, equipos, onConfirm, onClose }) {
   );
 }
 
-export default function Reservas({ reservas, equipos, onConvert, onCancelReserva, onDeleteReserva }) {
+export default function Reservas({ reservas, equipos, tc, onConvert, onCancelReserva, onDeleteReserva }) {
   const [q, setQ] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('activa');
   const [convertiendo, setConvertiendo] = useState(null);
@@ -178,6 +183,7 @@ export default function Reservas({ reservas, equipos, onConvert, onCancelReserva
         <ConvertirModal
           reserva={convertiendo}
           equipos={equipos}
+          tc={tc}
           onConfirm={(ventaData) => { onConvert(convertiendo.id, ventaData); setConvertiendo(null); }}
           onClose={() => setConvertiendo(null)}
         />

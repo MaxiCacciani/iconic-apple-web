@@ -254,9 +254,11 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
 
   const resetForm = () => {
     setCarrito([]);
+    setModalidad('contado');
     setCuotas(6);
     setCuotasCustom(false);
     setAnticipo('');
+    setPrimeraCuotaHoy(false);
     setMetodo('Transferencia');
     setCliente('');
     setClienteId(null);
@@ -361,7 +363,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const seniaNum = parseInt(seniaContado || '0', 10) || 0;
   const canjeNum = parseFloat(canjeValor || '0') || 0;  // USD
   const esCuotas = modalidad === 'cuotas';
-  const aFinanciar = Math.max(0, vPrecioUSD - antNum);
+  const aFinanciar = Math.max(0, vPrecioUSD - antNum - (esCuotas ? canjeNum : 0));
   const cuotaMonto = esCuotas && cuotas ? Math.round(aFinanciar / cuotas) : 0;
   const saldoContado = Math.max(0, vPrecioARS - seniaNum);
   const saldoTrasCanje = Math.max(0, vPrecioARS - canjeNum * tc);
@@ -381,6 +383,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     if (esCuotas) {
       const ec = validateCuotas(cuotas); if (ec) e.push(ec);
       const ea = validateAnticipo(anticipo, vPrecioUSD); if (ea) e.push(ea);
+      if (canje && canjeNum > 0 && antNum + canjeNum >= vPrecioUSD)
+        e.push('La suma de anticipo y canje cubre el total — usá Contado en su lugar.');
     }
     if (!esCuotas && tieneApartado) { const es = validateSenia(seniaContado, vPrecioARS); if (es) e.push(es); }
     if (canje) {
@@ -486,7 +490,6 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                 <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>En esta venta</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {carrito.map(e => {
-                    const precioItem = e.esRegalo ? 0 : e.usd * (e.cantidadVenta || 1);
                     return (
                       <div key={e.carritoId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -846,7 +849,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Saldo al retirar</span><span style={{ fontSize: 13.5, color: '#9ec6ec', fontWeight: 600 }}>{fARS(saldoContado)}</span></div>
             </>}
             {esCuotas && <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Anticipo</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{fUSD(antNum)}</span></div>
+              {antNum > 0 && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Anticipo</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{fUSD(antNum)}</span></div>}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>A financiar</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{fUSD(aFinanciar)}</span></div>
             </>}
           </div>

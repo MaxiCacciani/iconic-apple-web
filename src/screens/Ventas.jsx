@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { fARS, fUSD } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
+import { uploadGarantia, deleteGarantia } from '../lib/db.js';
 
 function EditCostoModal({ venta, onSave, onClose }) {
   const [costo, setCosto] = useState(venta.costo ? String(venta.costo) : '');
@@ -54,7 +55,6 @@ function DeleteVentaModal({ venta, onConfirm, onClose }) {
     </Modal>
   );
 }
-import { uploadGarantia, deleteGarantia } from '../lib/db.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });

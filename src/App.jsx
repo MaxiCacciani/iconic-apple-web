@@ -315,9 +315,32 @@ export default function App() {
 
   const handleDeleteVenta = async (id) => {
     try {
+      const venta = ventas.find(v => v.id === id);
       await db.deleteVenta(id);
       setVentas(prev => prev.filter(v => v.id !== id));
       setCobros(prev => prev.filter(c => c.ventaId !== id));
+
+      // Best-effort: restaurar equipos al stock
+      if (venta?.lineas?.length > 0) {
+        for (const l of venta.lineas) {
+          if (!l.equipoId) continue;
+          const eq = equipos.find(e => e.id === l.equipoId);
+          if (!eq) continue;
+          const qtySold = l.cantidad || 1;
+          try {
+            if (eq.estado === 'vendido') {
+              await db.updateEquipo(l.equipoId, { ...eq, estado: 'disponible', cantidad: qtySold });
+              setEquipos(prev => prev.map(e => e.id === l.equipoId ? { ...e, estado: 'disponible', cantidad: qtySold } : e));
+            } else if (!esPhone(eq.categoria)) {
+              await db.updateEquipo(l.equipoId, { ...eq, cantidad: eq.cantidad + qtySold });
+              setEquipos(prev => prev.map(e => e.id === l.equipoId ? { ...e, cantidad: e.cantidad + qtySold } : e));
+            }
+          } catch {
+            // best-effort — no bloqueamos el borrado si falla la restauración
+          }
+        }
+      }
+
       showToast('Venta eliminada');
     } catch (e) {
       showToast('Error al eliminar venta: ' + e.message);
@@ -377,12 +400,16 @@ export default function App() {
         .map(v => {
           const parts = v.equipo.split(' · ');
           const gPartes = v.garantiaVence ? v.garantiaVence.split('-').map(Number) : null;
+          // Inferir condición desde el primer equipo vendido en la linea
+          const equipoRef0 = v.lineas?.[0]?.equipoId
+            ? equipos.find(e => e.id === v.lineas[0].equipoId)
+            : null;
           return {
             modelo:         parts[0] || v.equipo,
             cap:            parts[1] || '',
             color:          parts[2] || '',
             imei:           v.imei || '',
-            cond:           'Nuevo',
+            cond:           equipoRef0?.cond || null,
             bat:            null,
             usd:            v.usd,
             fecha:          v.fechaLabel,
@@ -408,7 +435,7 @@ export default function App() {
           };
         }),
     })),
-    [clientes, ventas]
+    [clientes, ventas, equipos]
   );
 
   // ─── Renders ─────────────────────────────────────────────────────────────
@@ -433,7 +460,7 @@ export default function App() {
         {visited.has('stock')    && <div style={{ display: screen === 'stock'    ? 'block' : 'none' }}><Stock equipos={equipos} tc={tc} onAdd={addEquipo} onUpdate={updateEquipo} onDelete={deleteEquipo} /></div>}
         {visited.has('venta')    && <div style={{ display: screen === 'venta'    ? 'block' : 'none' }}><Venta equipos={equipos} clientes={clientesConCompras} tc={tc} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} /></div>}
         {visited.has('cobros')   && <div style={{ display: screen === 'cobros'   ? 'block' : 'none' }}><Cobros cobros={cobros} ventas={ventas} onUpdateEstado={updateCobroEstado} onRefresh={() => db.fetchCobros().then(setCobros).catch(() => {})} /></div>}
-        {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
+        {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} tc={tc} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
         {visited.has('clientes') && <div style={{ display: screen === 'clientes' ? 'block' : 'none' }}><Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} /></div>}
         {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}
       </main>

@@ -67,7 +67,7 @@ function rowToVenta(r) {
   let garantiaVence = r.garantia_vence || null;
   if (!garantiaVence && r.fecha) {
     const [y, m, d] = r.fecha.slice(0, 10).split('-').map(Number);
-    const date = new Date(y, m - 1 + 3, d);
+    const date = new Date(y, m - 1 + 12, d);
     garantiaVence = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
   return {
@@ -143,6 +143,12 @@ function rowToReserva(r) {
 
 function rowToCobro(r) {
   const [y, m, d] = r.fecha.slice(0, 10).split('-').map(Number);
+  const todayISO = localDateISO();
+  const [ty, tm, td] = todayISO.split('-').map(Number);
+  const cobroNum = y * 10000 + m * 100 + d;
+  const todayNum = ty * 10000 + tm * 100 + td;
+  // Si el cobro está pendiente y su fecha ya pasó, se trata como vencido
+  const estado = r.estado === 'pendiente' && cobroNum < todayNum ? 'vencida' : r.estado;
   return {
     id: r.id,
     ventaId: r.venta_id,
@@ -152,7 +158,7 @@ function rowToCobro(r) {
     y, m, d,
     numeroCuota: r.numero_cuota,
     totalCuotas: r.total_cuotas,
-    estado: r.estado,
+    estado,
   };
 }
 

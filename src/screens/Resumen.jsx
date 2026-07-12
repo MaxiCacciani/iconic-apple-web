@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TODAY, MONTH_ABBR, DAY_NAMES, fARS, fUSD, dnum } from '../lib/utils.js';
+import { esPhone } from '../data/data.js';
 
 const C = {
   label: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: 2, color: '#828a94', textTransform: 'uppercase' },
@@ -56,7 +57,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
   // Requiere atención
   const cobrosVencidos = cobros.filter(c => c.estado === 'vencida');
   const montoVencido = cobrosVencidos.reduce((a, b) => a + b.monto, 0);
-  const equiposBatBaja = disp.filter(e => e.bat !== null && e.bat < 80);
+  const equiposBatBaja = disp.filter(e => esPhone(e.categoria) && e.bat !== null && e.bat < 80);
   // Garantías vencen en los próximos 30 días
   const en30 = dayNum(30);
   const garProximas = ventas.filter(v => {
