@@ -62,7 +62,7 @@ export const COLORES_PS       = ['Blanco','Negro Midnight','Rojo Volcano','Azul 
 export const COLORES_NINTENDO = ['Blanco / Rojo Neón','Negro / Gris','Azul Neón / Rojo Neón','Coral','Azul','Gris','Turquesa','Edición Especial'];
 
 export const PROVEEDORES = [
-  'Plan canje','Importación personal',
+  'Plan canje','Importación personal','Mariano Camara','Lucas Bertorello',
 ];
 
 // ─── Registro de categorías ───────────────────────────────────────────────────
