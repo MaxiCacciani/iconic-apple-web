@@ -89,13 +89,13 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 30 }}>
+      <div className="page-head" style={{ marginBottom: 30 }}>
         <div>
           <div style={{ ...C.label, marginBottom: 9 }}>{todayDayName} {TODAY.d} de {mesNombre} · {TODAY.y}</div>
-          <h1 style={{ margin: 0, fontSize: 33, fontWeight: 600, letterSpacing: -0.5 }}>
+          <h1 className="page-title">
             {ventasHoy.length > 0
-              ? <>Hoy <span style={C.serif(33, '#9ec6ec')}>{ventasHoy.length} venta{ventasHoy.length > 1 ? 's' : ''}</span> registradas.</>
-              : <>Buenas, todo <span style={C.serif(33, '#9ec6ec')}>en orden</span> hoy.</>
+              ? <>Hoy <span style={C.serif('inherit', '#9ec6ec')}>{ventasHoy.length} venta{ventasHoy.length > 1 ? 's' : ''}</span> registradas.</>
+              : <>Buenas, todo <span style={C.serif('inherit', '#9ec6ec')}>en orden</span> hoy.</>
             }
           </h1>
         </div>
@@ -134,7 +134,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
       </div>
 
       {/* Row 1 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="rg-main" style={{ marginBottom: 16 }}>
         {/* Ventas de hoy */}
         <div style={{ position: 'relative', overflow: 'hidden', padding: '30px 32px', borderRadius: 20, border: '1px solid rgba(116,168,214,0.22)', background: 'linear-gradient(155deg, rgba(116,168,214,0.10), rgba(30,34,40,0.4) 60%)' }}>
           <div style={{ position: 'absolute', top: -60, right: -40, width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(116,168,214,0.16), transparent 70%)' }} />
@@ -145,7 +145,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 16, position: 'relative' }}>
-            <span style={{ ...C.serif(62, '#f6f9fc'), lineHeight: 0.9, whiteSpace: 'nowrap' }}>
+            <span style={{ ...C.serif('clamp(42px, 11vw, 62px)', '#f6f9fc'), lineHeight: 0.9, whiteSpace: 'nowrap' }}>
               {ventasHoy.length > 0 ? fUSD(ventasHoyUSD) : <span style={{ color: '#4a5058' }}>US$ —</span>}
             </span>
           </div>
@@ -186,7 +186,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
       </div>
 
       {/* Row 2 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="rg-main" style={{ marginBottom: 16 }}>
         <div style={C.card}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
             <span style={C.label}>Cobros próximos</span>
@@ -248,7 +248,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
       </div>
 
       {/* Row 3 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 16 }}>
+      <div className="rg-main">
         {/* Actividad de hoy */}
         <div style={C.card}>
           <span style={C.label}>Actividad de hoy</span>

@@ -37,6 +37,7 @@ export default function Login({ onLogin }) {
       background: 'radial-gradient(120% 80% at 80% -12%, #1d232a 0%, #121417 54%)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: "'Hanken Grotesk', sans-serif",
+      padding: 20,
     }}>
       <div style={{
         width: '100%', maxWidth: 380, padding: '40px 36px',

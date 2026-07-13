@@ -119,9 +119,9 @@ const METODO_COLORS = {
 
 function StatCard({ label, value, sub }) {
   return (
-    <div style={{ padding: '22px 24px', borderRadius: 18, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
+    <div style={{ padding: '22px 24px', borderRadius: 18, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20', minWidth: 0 }}>
       <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
-      <div style={SERIF(34, '#eef2f7')}>{value}</div>
+      <div style={{ ...SERIF('clamp(23px, 5.5vw, 34px)', '#eef2f7'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
       {sub && <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 5 }}>{sub}</div>}
     </div>
   );
@@ -328,8 +328,8 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 9 }}>Registro histórico</div>
-          <h1 style={{ margin: 0, fontSize: 33, fontWeight: 600, letterSpacing: -0.5 }}>
-            Historial de <span style={SERIF(33, '#9ec6ec')}>ventas</span>
+          <h1 className="page-title">
+            Historial de <span style={SERIF('inherit', '#9ec6ec')}>ventas</span>
           </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -341,7 +341,7 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+      <div className="rg-stats4" style={{ marginBottom: 24 }}>
         <StatCard label="Total ventas" value={ventas.length} sub="registros históricos" />
         <StatCard label="Ingresos total" value={fUSD(totalUSD)} sub={fARS(totalUSD * tc) + ' al TC actual'} />
         <StatCard
@@ -404,7 +404,9 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
         )}
       </div>
 
-      {/* Table header */}
+      {/* Table (scrollable en móvil) */}
+      <div className="tbl-scroll">
+      <div style={{ minWidth: 880 }}>
       <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 14, padding: '0 16px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
         {[['Fecha','left'],['Equipo','left'],['Cliente','left'],['Modalidad','left'],['Método','left'],['Precio / Ganancia','right'],['','right'],['','right']].map(([h, align], i) => (
           <span key={i} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1.5, textTransform: 'uppercase', textAlign: align }}>{h}</span>
@@ -542,6 +544,9 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
           </div>
         );
       })}
+
+      </div>
+      </div>
 
       {display.length > 0 && (
         <div style={{ ...MONO(11), marginTop: 14, textAlign: 'center', color: '#4a5058' }}>

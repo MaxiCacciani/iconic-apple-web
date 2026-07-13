@@ -131,7 +131,7 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
 
       <div style={{ marginBottom: 18 }}>
         <span style={MONO_L}>Método de pago</span>
-        <div style={{ display: 'flex', gap: 9 }}>
+        <div className="pay-methods">
           {['Transferencia','Débito','Crédito','Efectivo'].map(m => {
             const sel = metodo === m;
             return (
@@ -191,8 +191,8 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 9 }}>Apartados</div>
-          <h1 style={{ margin: 0, fontSize: 33, fontWeight: 600, letterSpacing: -0.5, whiteSpace: 'nowrap' }}>
-            Equipos <span style={SERIF(33, '#9ec6ec')}>reservados</span>
+          <h1 className="page-title" style={{ whiteSpace: 'nowrap' }}>
+            Equipos <span style={SERIF('inherit', '#9ec6ec')}>reservados</span>
           </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 26 }}>
@@ -221,7 +221,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
         {filtered.map(r => {
-          const pct = Math.round(r.sena / (r.usd * TC) * 100);
+          const pct = tc > 0 && r.usd > 0 ? Math.round(r.sena / (r.usd * tc) * 100) : 0;
           const equipoRef = r.equipoId ? equipos.find(e => e.id === r.equipoId) : null;
           const esActiva = r.estado === 'activa';
           const esCancelada = r.estado === 'cancelada';
@@ -229,7 +229,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
           const borderColor = esActiva ? 'rgba(130,179,157,0.2)' : esCancelada ? 'rgba(217,138,118,0.15)' : 'rgba(231,238,246,0.08)';
           const confirmando = cancelandoId === r.id;
           return (
-            <div key={r.id} style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'minmax(0,2.1fr) minmax(0,1fr) minmax(0,1.5fr)', gap: 22, alignItems: 'center', padding: '22px 24px 22px 28px', borderRadius: 16, border: `1px solid ${borderColor}`, background: '#181b20', overflow: 'hidden', opacity: esActiva ? 1 : 0.6 }}>
+            <div key={r.id} className="rg-reserva" style={{ position: 'relative', padding: '22px 24px 22px 28px', borderRadius: 16, border: `1px solid ${borderColor}`, background: '#181b20', overflow: 'hidden', opacity: esActiva ? 1 : 0.6 }}>
               <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: accentColor }} />
               <div>
                 <div style={{ fontSize: 16.5, fontWeight: 600, color: '#eef2f7' }}>{r.equipo}</div>
@@ -241,7 +241,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
                 <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Seña</div>
                 <div style={SERIF(25, '#9ec6ec')}>{fARS(r.sena)}</div>
                 <div style={{ fontSize: 12, color: '#828a94', marginTop: 5 }}>{pct}% del total · {fUSD(r.usd)}</div>
-                <div style={{ fontSize: 12, color: '#74a8d6', marginTop: 3 }}>Saldo: {fARS(Math.max(0, r.usd * TC - r.sena))}</div>
+                <div style={{ fontSize: 12, color: '#74a8d6', marginTop: 3 }}>Saldo: {fARS(Math.max(0, r.usd * tc - r.sena))}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

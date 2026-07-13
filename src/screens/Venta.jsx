@@ -470,10 +470,10 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
 
       <div style={{ marginBottom: 28 }}>
         <div style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 9 }}>Nueva operación</div>
-        <h1 style={{ margin: 0, fontSize: 33, fontWeight: 600, letterSpacing: -0.5 }}>Registrar una <span style={SERIF(33, '#9ec6ec')}>venta</span></h1>
+        <h1 className="page-title">Registrar una <span style={SERIF('inherit', '#9ec6ec')}>venta</span></h1>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.42fr) minmax(0,1fr)', gap: 24, alignItems: 'start' }}>
+      <div className="rg-venta">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
 
           {/* Step 01 – Equipos */}
@@ -583,7 +583,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <span style={stepLabel()}>03</span>
               <span style={{ fontSize: 15.5, fontWeight: 600 }}>Modalidad de pago</span>
             </div>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+            <div className="stack-mobile" style={{ marginBottom: 18 }}>
               {[['contado','Contado','Pago único'],['cuotas','En cuotas','Financiación propia']].map(([key, title, sub]) => {
                 const sel = modalidad === key;
                 return (
@@ -597,7 +597,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
             {!esCuotas && (
               <div style={{ padding: 18, borderRadius: 13, border: '1px solid rgba(231,238,246,0.07)', background: 'rgba(231,238,246,0.015)', marginBottom: 4 }}>
                 <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>¿El cliente paga ahora?</div>
-                <div style={{ display: 'flex', gap: 10 }}>
+                <div className="stack-mobile">
                   {[[false,'Sí, pago total','El cliente se lleva el equipo hoy'],[true,'Apartado con seña','El cliente paga una parte y busca después']].map(([val, t, sub]) => {
                     const sel = tieneApartado === val;
                     const disabled = val === true && !puedeApartado;
@@ -744,7 +744,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, color: '#6a717b' }}>
               {canje && canjeNum > 0 ? 'Método para el saldo' : 'Forma de pago'}
             </div>
-            <div style={{ display: 'flex', gap: 9 }}>
+            <div className="pay-methods">
               {['Transferencia','Débito','Crédito','Efectivo'].map(m => {
                 const sel = metodo === m;
                 return (
@@ -767,7 +767,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
         </div>
 
         {/* Comprobante (derecha) */}
-        <div style={{ position: 'sticky', top: 96, padding: 28, borderRadius: 20, border: '1px solid rgba(116,168,214,0.22)', background: 'linear-gradient(160deg, rgba(116,168,214,0.07), #181b20 55%)' }}>
+        <div className="sticky-panel" style={{ padding: 28, borderRadius: 20, border: '1px solid rgba(116,168,214,0.22)', background: 'linear-gradient(160deg, rgba(116,168,214,0.07), #181b20 55%)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
             <span style={SERIF(22)}>Comprobante</span>
             <span style={{ ...MONO(9.5, '#93b8da'), letterSpacing: 1.5, textTransform: 'uppercase', padding: '3px 9px', borderRadius: 20, border: '1px solid rgba(116,168,214,0.3)' }}>Borrador</span>

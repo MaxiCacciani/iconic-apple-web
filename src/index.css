@@ -24,3 +24,126 @@ button { font-family: 'Hanken Grotesk', sans-serif; }
   from { opacity: 0; transform: translateY(14px) scale(0.98); }
   to   { opacity: 1; transform: none; }
 }
+
+/* ─── Responsive layout utilities ──────────────────────────────────────────── */
+
+.main-pad { flex: 1; width: 100%; max-width: 1320px; margin: 0 auto; padding: 38px 32px 80px; }
+
+/* Responsive grids */
+.rg-main    { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; }
+.rg-venta   { display: grid; grid-template-columns: minmax(0,1.42fr) minmax(0,1fr); gap: 24px; align-items: start; }
+.rg-cobros  { display: grid; grid-template-columns: minmax(0,1.75fr) minmax(0,1fr); gap: 22px; align-items: start; }
+.rg-stats4  { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.rg-cli-det { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); gap: 16px; align-items: start; }
+.rg-reserva { display: grid; grid-template-columns: minmax(0,2.1fr) minmax(0,1fr) minmax(0,1.5fr); gap: 22px; align-items: center; }
+
+/* Sticky panels (removed on mobile) */
+.sticky-panel { position: sticky; top: 96px; }
+
+/* Page header: title left, stats/actions right; wraps on mobile */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.page-title { margin: 0; font-size: 33px; font-weight: 600; letter-spacing: -0.5px; }
+.page-title .serif { font-size: 33px; }
+
+/* Show/hide helpers */
+.desk-only {}
+.mob-only  { display: none; }
+.mob-only-flex { display: none; }
+
+/* Scrollable table wrapper for dense data tables */
+.tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tbl-scroll > .tbl-inner { min-width: 680px; }
+
+/* Row of option buttons: 2x2 wrap on mobile */
+.pay-methods { display: flex; gap: 9px; }
+
+/* Horizontal pair that stacks vertically on mobile */
+.stack-mobile { display: flex; gap: 10px; }
+
+/* Calendar day cell */
+.cal-cell { min-height: 80px; padding: 9px 10px; }
+
+/* Modal responsive */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(10,12,15,0.78);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 28px 0; }
+.modal-body { padding: 20px 28px 28px; }
+
+/* Mobile bottom navigation */
+.mobile-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  background: rgba(14,16,19,0.97);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(231,238,246,0.1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mobile-nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 9px 4px 10px;
+  background: none; border: none; cursor: pointer;
+  font-family: 'Hanken Grotesk', sans-serif;
+  gap: 4px;
+}
+.mobile-nav-dot {
+  width: 4px; height: 4px; border-radius: 50%;
+}
+
+@media (max-width: 767px) {
+  /* Main padding: extra bottom for bottom nav bar */
+  .main-pad { padding: 18px 14px 92px; }
+
+  /* Grids collapse to single column */
+  .rg-main    { grid-template-columns: 1fr; }
+  .rg-venta   { grid-template-columns: 1fr; }
+  .rg-cobros  { grid-template-columns: 1fr; }
+  .rg-cli-det { grid-template-columns: 1fr; }
+  .rg-reserva { grid-template-columns: 1fr; gap: 16px; }
+
+  /* Stats: 2 columns on mobile */
+  .rg-stats4  { grid-template-columns: 1fr 1fr; }
+
+  /* Remove sticky behavior */
+  .sticky-panel { position: static; }
+
+  /* Visibility */
+  .desk-only { display: none !important; }
+  .mob-only  { display: block; }
+  .mob-only-flex { display: flex !important; }
+
+  /* Mobile nav appears */
+  .mobile-nav { display: flex; justify-content: space-around; align-items: stretch; }
+
+  /* Header: hide search and nav on mobile */
+  .hdr-search  { display: none !important; }
+  .hdr-nav     { display: none !important; }
+
+  /* Modal: full-width sheet feel on small screens */
+  .modal-backdrop { padding: 10px; align-items: flex-end; }
+  .modal-head { padding: 18px 18px 0; }
+  .modal-body { padding: 16px 18px 22px; }
+
+  /* Page titles smaller on mobile */
+  .page-title { font-size: 25px; }
+  .page-title .serif { font-size: 25px; }
+
+  /* Option buttons wrap 2x2 */
+  .pay-methods { flex-wrap: wrap; }
+  .pay-methods > button { flex: 1 1 calc(50% - 5px) !important; }
+
+  /* Stacks collapse vertically */
+  .stack-mobile { flex-direction: column; }
+
+  /* Calendar cells compact */
+  .cal-cell { min-height: 52px; padding: 5px 6px; }
+}
+
+@media (min-width: 768px) {
+  /* Make sure mobile nav never shows on desktop */
+  .mobile-nav { display: none !important; }
+}

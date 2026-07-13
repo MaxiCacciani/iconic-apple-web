@@ -6,6 +6,10 @@ const S = {
     background: 'rgba(18,20,23,0.82)', backdropFilter: 'blur(18px)',
     WebkitBackdropFilter: 'blur(18px)',
   },
+  headerMob: {
+    padding: '13px 16px',
+    gap: 12,
+  },
   logoWrap: { display: 'flex', alignItems: 'center', gap: 13, flexShrink: 0 },
   logoIcon: {
     width: 38, height: 38, borderRadius: 11, flexShrink: 0,
@@ -51,6 +55,7 @@ const S = {
     background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)',
     color: '#14171c', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
     boxShadow: '0 6px 18px -8px rgba(180,200,220,0.6)',
+    whiteSpace: 'nowrap',
   },
 };
 
@@ -63,51 +68,88 @@ const NAV_ITEMS = [
   { key: 'clientes', label: 'Clientes' },
 ];
 
+const NAV_ICONS = {
+  resumen:  '◈',
+  stock:    '▤',
+  ventas:   '◉',
+  cobros:   '◷',
+  reservas: '⬡',
+  clientes: '◎',
+};
+
 export default function Header({ screen, onNav, onLogout }) {
   return (
-    <header style={S.header}>
-      <div style={S.logoWrap}>
-        <div style={S.logoIcon}>
-          <div style={S.logoIridescent} />
-          <span style={S.logoI}>i</span>
+    <>
+      <header style={S.header}>
+        <div style={S.logoWrap}>
+          <div style={S.logoIcon}>
+            <div style={S.logoIridescent} />
+            <span style={S.logoI}>i</span>
+          </div>
+          <div style={S.brandCol} className="desk-only">
+            <span style={S.brandName}>Iconic</span>
+            <span style={S.brandSub}>Villa Carlos Paz</span>
+          </div>
         </div>
-        <div style={S.brandCol}>
-          <span style={S.brandName}>Iconic</span>
-          <span style={S.brandSub}>Villa Carlos Paz</span>
-        </div>
-      </div>
 
-      <div style={S.searchWrap}>
-        <div style={S.searchBox}>
-          <div style={S.searchIcon}><div style={S.searchIconLine} /></div>
-          <span style={S.searchPlaceholder}>Buscar equipo, cliente o IMEI…</span>
-          <span style={S.kbdHint}>⌘K</span>
+        <div style={S.searchWrap} className="hdr-search">
+          <div style={S.searchBox}>
+            <div style={S.searchIcon}><div style={S.searchIconLine} /></div>
+            <span style={S.searchPlaceholder}>Buscar equipo, cliente o IMEI…</span>
+            <span style={S.kbdHint}>⌘K</span>
+          </div>
         </div>
-      </div>
 
-      <nav style={S.nav}>
+        <nav style={S.nav} className="hdr-nav">
+          {NAV_ITEMS.map(({ key, label }) => {
+            const active = screen === key;
+            return (
+              <button key={key} onClick={() => onNav(key)} style={S.navBtnActive}>
+                <span style={active ? S.navLabelActive : S.navLabelInactive}>{label}</span>
+                <span style={active ? S.navDotActive : S.navDotInactive} />
+              </button>
+            );
+          })}
+          <button onClick={() => onNav('venta')} style={S.ctaBtn}>
+            <span style={{ fontSize: 17, lineHeight: 0, marginTop: -2 }}>+</span> Registrar venta
+          </button>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              title="Cerrar sesión"
+              style={{ marginLeft: 6, background: 'none', border: '1px solid rgba(231,238,246,0.1)', borderRadius: 9, padding: '7px 11px', color: '#6a717b', fontSize: 12.5, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              Salir
+            </button>
+          )}
+        </nav>
+
+        {/* Mobile: CTA + logout compact */}
+        <div className="mob-only-flex" style={{ marginLeft: 'auto', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => onNav('venta')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 11, border: '1px solid rgba(255,255,255,0.22)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 22, fontWeight: 700, cursor: 'pointer', lineHeight: 1 }}>
+            +
+          </button>
+          {onLogout && (
+            <button onClick={onLogout} title="Cerrar sesión" style={{ background: 'none', border: '1px solid rgba(231,238,246,0.1)', borderRadius: 9, padding: '7px 11px', color: '#6a717b', fontSize: 12.5, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}>
+              Salir
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* Mobile bottom navigation */}
+      <nav className="mobile-nav">
         {NAV_ITEMS.map(({ key, label }) => {
           const active = screen === key;
           return (
-            <button key={key} onClick={() => onNav(key)} style={S.navBtnActive}>
-              <span style={active ? S.navLabelActive : S.navLabelInactive}>{label}</span>
-              <span style={active ? S.navDotActive : S.navDotInactive} />
+            <button key={key} onClick={() => onNav(key)} className="mobile-nav-btn">
+              <span style={{ fontSize: 18, lineHeight: 1, color: active ? '#74a8d6' : '#4a5058' }}>{NAV_ICONS[key]}</span>
+              <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, color: active ? '#74a8d6' : '#6a717b', letterSpacing: 0.3 }}>{label}</span>
+              <span className="mobile-nav-dot" style={{ background: active ? '#74a8d6' : 'transparent' }} />
             </button>
           );
         })}
-        <button onClick={() => onNav('venta')} style={S.ctaBtn}>
-          <span style={{ fontSize: 17, lineHeight: 0, marginTop: -2 }}>+</span> Registrar venta
-        </button>
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            title="Cerrar sesión"
-            style={{ marginLeft: 6, background: 'none', border: '1px solid rgba(231,238,246,0.1)', borderRadius: 9, padding: '7px 11px', color: '#6a717b', fontSize: 12.5, cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            Salir
-          </button>
-        )}
       </nav>
-    </header>
+    </>
   );
 }

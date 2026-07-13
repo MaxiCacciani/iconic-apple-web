@@ -397,14 +397,14 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22 }}>
+      <div className="page-head" style={{ marginBottom: 22 }}>
         <div>
           <div style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 9 }}>Inventario</div>
-          <h1 style={{ margin: 0, fontSize: 33, fontWeight: 600, letterSpacing: -0.5 }}>
-            Stock <span style={SERIF(33, '#9ec6ec')}>en piso</span>
+          <h1 className="page-title">
+            Stock <span style={SERIF('inherit', '#9ec6ec')}>en piso</span>
           </h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 5 }}>Valor dispositivos</div>
             <div style={SERIF(28)}>{fUSD(valorDisp)}</div>
@@ -452,7 +452,9 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
         </div>
       </div>
 
-      {/* Table header */}
+      {/* Table (scrollable en móvil) */}
+      <div className="tbl-scroll">
+      <div style={{ minWidth: 840 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.9fr 1.3fr 1.1fr 0.9fr 0.85fr 72px', gap: 12, padding: '0 14px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
         {[['Producto','left'],['Categoría','left'],['Condición / Estado físico','left'],['IMEI / Stock','left'],['Precio','right'],['Estado','right'],['','right']].map(([h, align]) => (
           <span key={h} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1.5, textTransform: 'uppercase', textAlign: align }}>{h}</span>
@@ -569,6 +571,8 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
             </div>
           );
         })}
+      </div>
+      </div>
       </div>
     </div>
   );

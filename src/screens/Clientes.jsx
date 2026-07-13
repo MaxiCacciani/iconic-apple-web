@@ -280,7 +280,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
             <span style={SERIF(30, '#9ec6ec')}>{cli.inicial}</span>
           </div>
           <div>
-            <div style={SERIF(33)}>{cli.nombre}</div>
+            <div style={SERIF('clamp(24px, 6vw, 33px)')}>{cli.nombre}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 11, flexWrap: 'wrap' }}>
               <span style={{ ...MONO(12, '#a6afba') }}>DNI {cli.dni}</span>
               <span style={{ color: '#3a4047' }}>·</span>
@@ -308,7 +308,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.35fr) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
+      <div className="rg-cli-det">
         {/* Left: compras + reclamos */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
@@ -509,8 +509,8 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 9 }}>Directorio</div>
-          <h1 style={{ margin: 0, fontSize: 33, fontWeight: 600, letterSpacing: -0.5 }}>
-            Cartera de <span style={SERIF(33, '#9ec6ec')}>clientes</span>
+          <h1 className="page-title">
+            Cartera de <span style={SERIF('inherit', '#9ec6ec')}>clientes</span>
           </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 320, maxWidth: '100%', padding: '11px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.08)' }}>
@@ -522,7 +522,9 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
         </div>
       </div>
 
-      {/* Table header */}
+      {/* Table (scrollable en móvil) */}
+      <div className="tbl-scroll">
+      <div style={{ minWidth: 720 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.1fr 1.3fr 0.7fr 1fr 0.9fr', gap: 16, padding: '0 20px 11px', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
         {[['Cliente','left'],['DNI','left'],['Localidad','left'],['Equipos','center'],['Saldo','right'],['Estado','right']].map(([h, align]) => (
           <span key={h} style={{ ...MONO(10, '#6a717b'), letterSpacing: 1.5, textTransform: 'uppercase', textAlign: align }}>{h}</span>
@@ -555,6 +557,8 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
             </button>
           );
         })}
+      </div>
+      </div>
       </div>
     </div>
   );

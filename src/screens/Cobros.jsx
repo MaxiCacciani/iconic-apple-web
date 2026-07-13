@@ -89,8 +89,8 @@ export default function Cobros({ cobros, ventas, onUpdateEstado, onRefresh }) {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 26, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ ...MONO(11), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 9 }}>Agenda</div>
-          <h1 style={{ margin: 0, fontSize: 33, fontWeight: 600, letterSpacing: -0.5 }}>
-            Cobros y <span style={SERIF(33, '#9b93d6')}>garantías</span>
+          <h1 className="page-title">
+            Cobros y <span style={SERIF('inherit', '#9b93d6')}>garantías</span>
           </h1>
         </div>
         <div style={{ display: 'flex', gap: 24 }}>
@@ -107,7 +107,7 @@ export default function Cobros({ cobros, ventas, onUpdateEstado, onRefresh }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.75fr) minmax(0,1fr)', gap: 22, alignItems: 'start' }}>
+      <div className="rg-cobros">
         {/* Calendario */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -132,7 +132,7 @@ export default function Cobros({ cobros, ventas, onUpdateEstado, onRefresh }) {
                   cell.empty
                     ? <div key={ci} />
                     : (
-                      <button key={ci} onClick={cell.onClick} style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 80, padding: '9px 10px', borderRadius: 12, border: cell.selected ? '1.5px solid #74a8d6' : '1px solid rgba(231,238,246,0.06)', background: cell.selected ? 'rgba(116,168,214,0.08)' : 'rgba(231,238,246,0.015)', cursor: 'pointer', textAlign: 'left' }}>
+                      <button key={ci} onClick={cell.onClick} className="cal-cell" style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: 12, border: cell.selected ? '1.5px solid #74a8d6' : '1px solid rgba(231,238,246,0.06)', background: cell.selected ? 'rgba(116,168,214,0.08)' : 'rgba(231,238,246,0.015)', cursor: 'pointer', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           {cell.isToday
                             ? <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: '50%', background: '#74a8d6', color: '#14171c', fontSize: 12.5, fontWeight: 700 }}>{cell.num}</span>
@@ -171,7 +171,7 @@ export default function Cobros({ cobros, ventas, onUpdateEstado, onRefresh }) {
         </div>
 
         {/* Panel del día */}
-        <div style={{ position: 'sticky', top: 96, padding: 26, borderRadius: 20, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
+        <div className="sticky-panel" style={{ padding: 26, borderRadius: 20, border: '1px solid rgba(231,238,246,0.08)', background: '#181b20' }}>
           <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Día seleccionado</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 22 }}>
             <span style={SERIF(30)}>{dayName} {selD}</span>
