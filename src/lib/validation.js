@@ -39,7 +39,7 @@ export function validateCosto(costo, usd) {
   const c = parseFloat(costo);
   const u = parseFloat(usd);
   if (isNaN(c) || c < 0)  return 'El costo no puede ser negativo.';
-  if (!isNaN(u) && c >= u) return 'El costo no puede ser mayor o igual al precio de venta.';
+  if (!isNaN(u) && c > u) return 'El costo no puede ser mayor al precio de venta.';
   return null;
 }
 
@@ -85,10 +85,10 @@ export function validateTel(tel) {
 
 // ─── PAGO ────────────────────────────────────────────────────────────────────
 
-export function validateSenia(senia, precioARS) {
-  const s = parseInt(senia, 10) || 0;
+export function validateSenia(senia, precioUSD) {
+  const s = parseFloat(senia) || 0;
   if (s < 0) return 'La seña no puede ser negativa.';
-  if (s >= precioARS) return 'La seña no puede ser mayor o igual al precio total (quedaría saldo 0).';
+  if (s >= precioUSD) return 'La seña no puede ser mayor o igual al precio total (quedaría saldo 0).';
   return null;
 }
 

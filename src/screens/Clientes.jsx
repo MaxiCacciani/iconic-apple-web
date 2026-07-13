@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DIAGNOSTICOS } from '../data/data.js';
-import { TODAY, fARS, fUSD, dnum, saldoDe } from '../lib/utils.js';
+import { TODAY, MONTH_ABBR, fARS, fUSD, dnum } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
 import { validateDNI, validateTel, isDNIDuplicate } from '../lib/validation.js';
@@ -44,7 +44,7 @@ function ReclamoModal({ compras, onSave, onClose }) {
       imei: equipo?.imei || '',
       diagnostico: diagFinal,
       descripcion,
-      fecha: `${TODAY.d} jun ${TODAY.y}`,
+      fecha: `${TODAY.d} ${MONTH_ABBR[TODAY.m - 1]} ${TODAY.y}`,
       estado,
       resolucion,
     });
@@ -225,12 +225,14 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
     planView = {
       equipo: plan.equipo, prox: plan.prox, mora: plan.mora || '',
       tieneMora: !!plan.mora,
-      restanteFmt: fARS((plan.total - plan.pagadas) * plan.monto),
+      restanteFmt: fUSD((plan.total - plan.pagadas) * plan.monto),
       label: `${plan.pagadas} de ${plan.total} cuotas pagadas`,
       dots: Array.from({ length: plan.total }, (_, i) => ({ pagada: i < plan.pagadas })),
     };
   }
-  const reservasCli = reservas.filter(r => r.cliente === cli.nombre && r.estado === 'activa');
+  const reservasCli = reservas.filter(r =>
+    (r.clienteId ? r.clienteId === cli.id : r.cliente === cli.nombre) && r.estado === 'activa'
+  );
   const reclamos = cli.reclamos || [];
 
   const handleSaveReclamo = (data) => {
@@ -302,7 +304,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Saldo pendiente</div>
-            <div style={SERIF(38, '#9ec6ec')}>{fARS(saldoDe(cli))}</div>
+            <div style={SERIF(38, '#9ec6ec')}>{fUSD(cli.saldoPendiente || 0)}</div>
             <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 7 }}>Total comprado · {fUSD(cli.compras.reduce((a, b) => a + b.usd, 0))}</div>
           </div>
         </div>
@@ -341,7 +343,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 13, paddingTop: 13, borderTop: '1px solid rgba(231,238,246,0.06)', flexWrap: 'wrap' }}>
                       {co.imei && <span style={{ ...MONO(11.5) }}>{co.imei}</span>}
-                      <span style={{ fontSize: 12, color: '#a6afba' }}>{co.cond}{co.bat ? ` · batería ${co.bat}%` : ' · sellado'}</span>
+                      <span style={{ fontSize: 12, color: '#a6afba' }}>{co.cond}{co.bat ? ` · batería ${co.bat}%` : co.cond === 'Nuevo' ? ' · sellado' : ''}</span>
                       <div style={{ flex: 1 }} />
                       {co.garantiaUrl && co.garantiaUrl.split('|').filter(Boolean).map((url, gi) => (
                         <a key={gi} href={url} target="_blank" rel="noopener noreferrer"
@@ -460,7 +462,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
                       <div style={{ fontSize: 12, color: '#828a94', marginTop: 1 }}>Reservado {r.fecha}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#74a8d6', whiteSpace: 'nowrap' }}>{fARS(r.sena)}</div>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: '#74a8d6', whiteSpace: 'nowrap' }}>{fUSD(r.sena)}</div>
                       <div style={{ fontSize: 11, color: '#828a94' }}>seña</div>
                     </div>
                   </div>
@@ -547,7 +549,7 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
               <span style={{ ...MONO(12.5, '#a6afba') }}>{c.dni}</span>
               <span style={{ fontSize: 13.5, color: '#828a94' }}>{c.loc}</span>
               <span style={{ fontSize: 13.5, color: '#a6afba', textAlign: 'center' }}>{c.compras.length}</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7', textAlign: 'right', whiteSpace: 'nowrap' }}>{fARS(saldoDe(c))}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7', textAlign: 'right', whiteSpace: 'nowrap' }}>{fUSD(c.saldoPendiente || 0)}</span>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 {!enMora
                   ? <span style={{ fontSize: 11.5, color: '#b6cdc1', padding: '3px 10px', borderRadius: 20, background: 'rgba(130,179,157,0.12)' }}>Al día</span>

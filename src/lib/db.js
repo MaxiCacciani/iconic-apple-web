@@ -419,7 +419,17 @@ export async function updateCobroEstado(id, estado) {
 export async function generateCobros(ventaId, ventaData) {
   if (!ventaData.cuotas || !ventaData.cuotaMonto) return [];
   const today = localDateISO();
-  const { primeraCuotaHoy } = ventaData;
+  const { primeraCuotaHoy, cuotas, cuotaMonto } = ventaData;
+
+  // La última cuota ajusta el redondeo para que la suma dé exacto el total financiado
+  const totalFinanciado = Math.max(0,
+    Number(ventaData.usd || 0)
+    - Number(ventaData.anticipo || 0)
+    - (ventaData.canje && ventaData.canjeValor ? Number(ventaData.canjeValor) : 0)
+  );
+  const ajusteUltima = Math.round((totalFinanciado - cuotaMonto * (cuotas - 1)) * 100) / 100;
+  const montoUltima = totalFinanciado > 0 && ajusteUltima > 0 ? ajusteUltima : cuotaMonto;
+
   const makeRow = (i) => {
     const esHoy = primeraCuotaHoy && i === 0;
     return {
@@ -427,7 +437,7 @@ export async function generateCobros(ventaId, ventaData) {
       cliente_id: ventaData.clienteId ?? null,
       cliente_nombre: ventaData.cliente,
       equipo_label: ventaData.equipo,
-      monto: ventaData.cuotaMonto,
+      monto: i === cuotas - 1 ? montoUltima : cuotaMonto,
       fecha: esHoy ? today : addMonthsISO(today, primeraCuotaHoy ? i : i + 1),
       estado: esHoy ? 'cobrada' : 'pendiente',
     };

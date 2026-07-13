@@ -25,7 +25,7 @@ export default function VentaDetalleModal({ venta, onClose }) {
     usd:      venta.usd,
   }];
 
-  const totalUSD = rows.reduce((a, b) => a + (b.usd || 0), 0);
+  const totalUSD = rows.reduce((a, b) => a + (b.usd || 0) * (b.cantidad || 1), 0);
 
   return (
     <Modal title="Detalle de venta" onClose={onClose} width={540}>

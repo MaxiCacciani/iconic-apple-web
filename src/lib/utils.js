@@ -21,5 +21,4 @@ export function mesesRest(gv) {
   return mo;
 }
 export function gvFmt(gv) { return gv.d + ' ' + MONTH_ABBR[gv.m - 1] + ' ' + gv.y; }
-export function saldoDe(c) { return c.plan ? (c.plan.total - c.plan.pagadas) * c.plan.monto : 0; }
 export function nextId(arr) { return String(arr.length + 1 + Date.now()).slice(-8); }

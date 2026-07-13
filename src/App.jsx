@@ -209,13 +209,18 @@ export default function App() {
         ? ventaData.lineas
         : ventaData.equipoId ? [{ equipoId: ventaData.equipoId, cantidad: 1 }] : [];
 
-      let stockError = false;
+      // Agrupar cantidades por equipo: una venta puede tener el mismo producto
+      // en más de una línea (ej. unidades con precio + unidades de regalo)
+      const qtyPorEquipo = new Map();
       for (const l of lineasVenta) {
-        const eid = l.equipoId;
-        if (!eid) continue;
+        if (!l.equipoId) continue;
+        qtyPorEquipo.set(l.equipoId, (qtyPorEquipo.get(l.equipoId) || 0) + (l.cantidad || 1));
+      }
+
+      let stockError = false;
+      for (const [eid, qtySold] of qtyPorEquipo) {
         const eq = equipos.find(e => e.id === eid);
         if (!eq) continue;
-        const qtySold = l.cantidad || 1;
         try {
           if (!esPhone(eq.categoria) && eq.cantidad > qtySold) {
             await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - qtySold });
@@ -229,9 +234,8 @@ export default function App() {
 
       // Actualizar estado local del stock independientemente de los errores de BD
       setEquipos(prev => prev.map(e => {
-        const l = lineasVenta.find(lv => lv.equipoId === e.id);
-        if (!l) return e;
-        const qty = l.cantidad || 1;
+        const qty = qtyPorEquipo.get(e.id);
+        if (!qty) return e;
         if (!esPhone(e.categoria) && e.cantidad > qty) return { ...e, cantidad: e.cantidad - qty };
         return { ...e, estado: 'vendido' };
       }));
@@ -320,20 +324,23 @@ export default function App() {
       setVentas(prev => prev.filter(v => v.id !== id));
       setCobros(prev => prev.filter(c => c.ventaId !== id));
 
-      // Best-effort: restaurar equipos al stock
+      // Best-effort: restaurar equipos al stock (agrupando líneas por equipo)
       if (venta?.lineas?.length > 0) {
+        const qtyPorEquipo = new Map();
         for (const l of venta.lineas) {
           if (!l.equipoId) continue;
-          const eq = equipos.find(e => e.id === l.equipoId);
+          qtyPorEquipo.set(l.equipoId, (qtyPorEquipo.get(l.equipoId) || 0) + (l.cantidad || 1));
+        }
+        for (const [eid, qtySold] of qtyPorEquipo) {
+          const eq = equipos.find(e => e.id === eid);
           if (!eq) continue;
-          const qtySold = l.cantidad || 1;
           try {
             if (eq.estado === 'vendido') {
-              await db.updateEquipo(l.equipoId, { ...eq, estado: 'disponible', cantidad: qtySold });
-              setEquipos(prev => prev.map(e => e.id === l.equipoId ? { ...e, estado: 'disponible', cantidad: qtySold } : e));
+              await db.updateEquipo(eid, { ...eq, estado: 'disponible', cantidad: qtySold });
+              setEquipos(prev => prev.map(e => e.id === eid ? { ...e, estado: 'disponible', cantidad: qtySold } : e));
             } else if (!esPhone(eq.categoria)) {
-              await db.updateEquipo(l.equipoId, { ...eq, cantidad: eq.cantidad + qtySold });
-              setEquipos(prev => prev.map(e => e.id === l.equipoId ? { ...e, cantidad: e.cantidad + qtySold } : e));
+              await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad + qtySold });
+              setEquipos(prev => prev.map(e => e.id === eid ? { ...e, cantidad: e.cantidad + qtySold } : e));
             }
           } catch {
             // best-effort — no bloqueamos el borrado si falla la restauración
@@ -393,10 +400,46 @@ export default function App() {
   // La tabla clientes no guarda compras; se derivan de ventas en tiempo real.
 
   const clientesConCompras = useMemo(() =>
-    clientes.map(c => ({
+    clientes.map(c => {
+      const ventasCli = ventas.filter(v => v.clienteId === c.id || v.cliente === c.nombre);
+      const idsVentas = new Set(ventasCli.map(v => v.id));
+      const cobrosCli = cobros.filter(cb => idsVentas.has(cb.ventaId));
+
+      // Saldo real: suma de cuotas no cobradas (USD)
+      const saldoPendiente = cobrosCli
+        .filter(cb => cb.estado !== 'cobrada')
+        .reduce((a, b) => a + b.monto, 0);
+
+      // Plan activo: la venta en cuotas más reciente con cuotas sin cobrar
+      let plan = null;
+      const ventasCuotas = ventasCli
+        .filter(v => v.modalidad === 'cuotas')
+        .sort((a, b) => b.fechaNum - a.fechaNum);
+      for (const v of ventasCuotas) {
+        const cbs = cobrosCli
+          .filter(cb => cb.ventaId === v.id)
+          .sort((a, b) => (a.y * 10000 + a.m * 100 + a.d) - (b.y * 10000 + b.m * 100 + b.d));
+        if (cbs.length === 0) continue;
+        const pagadas = cbs.filter(cb => cb.estado === 'cobrada').length;
+        if (pagadas >= cbs.length) continue;
+        const prox = cbs.find(cb => cb.estado !== 'cobrada');
+        const vencida = cbs.find(cb => cb.estado === 'vencida');
+        plan = {
+          equipo: v.equipo,
+          total: cbs.length,
+          pagadas,
+          monto: v.cuotaMonto || cbs[0].monto || 0,
+          prox: prox ? `${prox.d}/${prox.m}` : '',
+          mora: vencida ? `${vencida.d}/${vencida.m}` : '',
+        };
+        break;
+      }
+
+      return {
       ...c,
-      compras: ventas
-        .filter(v => v.clienteId === c.id || v.cliente === c.nombre)
+      saldoPendiente,
+      plan,
+      compras: ventasCli
         .map(v => {
           const parts = v.equipo.split(' · ');
           const gPartes = v.garantiaVence ? v.garantiaVence.split('-').map(Number) : null;
@@ -434,8 +477,9 @@ export default function App() {
             cliente:    v.cliente,
           };
         }),
-    })),
-    [clientes, ventas, equipos]
+      };
+    }),
+    [clientes, ventas, equipos, cobros]
   );
 
   // ─── Renders ─────────────────────────────────────────────────────────────

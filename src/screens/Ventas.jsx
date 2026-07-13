@@ -471,7 +471,7 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
               {v.modalidad === 'contado' && v.canje && (
                 <div>
                   <span style={{ fontSize: 13, color: '#a6afba' }}>Contado + canje</span>
-                  {v.canjeValor > 0 && <div style={{ fontSize: 11.5, color: '#82b39d', marginTop: 2 }}>Canje: {fARS(v.canjeValor)}</div>}
+                  {v.canjeValor > 0 && <div style={{ fontSize: 11.5, color: '#82b39d', marginTop: 2 }}>Canje: {fUSD(v.canjeValor)}</div>}
                 </div>
               )}
               {v.modalidad === 'cuotas' && (
@@ -479,9 +479,9 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
                   <div style={{ fontSize: 13, color: '#eef2f7', fontWeight: 500 }}>
                     {v.cuotas} cuotas{v.canje ? ' + canje' : ''}
                   </div>
-                  {v.cuotaMonto && <div style={{ fontSize: 11.5, color: '#74a8d6', marginTop: 2 }}>{fARS(v.cuotaMonto)} / mes</div>}
-                  {v.anticipo > 0 && <div style={{ fontSize: 11, color: '#828a94', marginTop: 1 }}>Anticipo {fARS(v.anticipo)}</div>}
-                  {v.canje && v.canjeValor > 0 && <div style={{ fontSize: 11, color: '#82b39d', marginTop: 1 }}>Canje {fARS(v.canjeValor)}</div>}
+                  {v.cuotaMonto && <div style={{ fontSize: 11.5, color: '#74a8d6', marginTop: 2 }}>{fUSD(v.cuotaMonto)} / mes</div>}
+                  {v.anticipo > 0 && <div style={{ fontSize: 11, color: '#828a94', marginTop: 1 }}>Anticipo {fUSD(v.anticipo)}</div>}
+                  {v.canje && v.canjeValor > 0 && <div style={{ fontSize: 11, color: '#82b39d', marginTop: 1 }}>Canje {fUSD(v.canjeValor)}</div>}
                 </div>
               )}
               {v.modalidad === 'apartado' && (

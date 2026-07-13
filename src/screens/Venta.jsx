@@ -360,12 +360,12 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const vPrecioUSD = carrito.reduce((a, b) => a + (b.esRegalo ? 0 : effPrecio(b) * (b.cantidadVenta || 1)), 0);
   const vPrecioARS = vPrecioUSD * tc;
   const antNum = parseFloat(anticipo || '0') || 0;
-  const seniaNum = parseInt(seniaContado || '0', 10) || 0;
+  const seniaNum = parseFloat(seniaContado || '0') || 0;  // USD
   const canjeNum = parseFloat(canjeValor || '0') || 0;  // USD
   const esCuotas = modalidad === 'cuotas';
   const aFinanciar = Math.max(0, vPrecioUSD - antNum - (esCuotas ? canjeNum : 0));
   const cuotaMonto = esCuotas && cuotas ? Math.round(aFinanciar / cuotas) : 0;
-  const saldoContado = Math.max(0, vPrecioARS - seniaNum);
+  const saldoContadoUSD = Math.max(0, vPrecioUSD - seniaNum);
   const saldoTrasCanje = Math.max(0, vPrecioARS - canjeNum * tc);
   const canjeDef       = getCatDef(canjeCategoria);
   const canjeIsPhone   = canjeDef.tieneIMEI;
@@ -386,7 +386,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
       if (canje && canjeNum > 0 && antNum + canjeNum >= vPrecioUSD)
         e.push('La suma de anticipo y canje cubre el total — usá Contado en su lugar.');
     }
-    if (!esCuotas && tieneApartado) { const es = validateSenia(seniaContado, vPrecioARS); if (es) e.push(es); }
+    if (!esCuotas && tieneApartado) { const es = validateSenia(seniaContado, vPrecioUSD); if (es) e.push(es); }
     if (canje) {
       const ev = validateCanjeValor(canjeValor, vPrecioUSD); if (ev) e.push(ev);
       if (canjeIsPhone && canjeModelo) {
@@ -613,15 +613,20 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                 </div>
                 {tieneApartado && puedeApartado && (
                   <div style={{ marginTop: 16 }}>
-                    <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 9 }}>Seña / Señal (ARS)</div>
+                    <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 9 }}>Seña / Señal (USD)</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 15px', borderRadius: 11, background: 'rgba(231,238,246,0.04)', border: '1px solid rgba(231,238,246,0.09)' }}>
-                      <span style={{ color: '#828a94', fontSize: 15 }}>$</span>
-                      <input type="text" inputMode="numeric" value={seniaContado} onChange={e => setSeniaContado(e.target.value.replace(/[^0-9]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
+                      <span style={{ color: '#828a94', fontSize: 15 }}>US$</span>
+                      <input type="text" inputMode="decimal" value={seniaContado} onChange={e => setSeniaContado(e.target.value.replace(/[^0-9.]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 15, fontWeight: 500 }} />
                     </div>
-                    {seniaNum > 0 && vPrecioARS > 0 && (
+                    {seniaNum > 0 && (
+                      <div style={{ fontSize: 12, color: '#828a94', marginTop: 7 }}>
+                        Si el cliente paga en pesos: ≈ {fARS(seniaNum * tc)} al TC de hoy
+                      </div>
+                    )}
+                    {seniaNum > 0 && vPrecioUSD > 0 && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, padding: '10px 14px', borderRadius: 10, background: 'rgba(116,168,214,0.06)', border: '1px solid rgba(116,168,214,0.15)' }}>
                         <span style={{ fontSize: 13, color: '#a6afba' }}>Saldo pendiente al retirar</span>
-                        <span style={{ fontSize: 15, fontWeight: 600, color: '#9ec6ec', whiteSpace: 'nowrap' }}>{fARS(saldoContado)}</span>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: '#9ec6ec', whiteSpace: 'nowrap' }}>{fUSD(saldoContadoUSD)}</span>
                       </div>
                     )}
                   </div>
@@ -845,8 +850,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
             {!esCuotas && !tieneApartado && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Modalidad</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>Contado · pago total</span></div>}
             {!esCuotas && tieneApartado && <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Modalidad</span><span style={{ fontSize: 13.5, color: '#74a8d6', fontWeight: 500 }}>Apartado con seña</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Seña</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 600 }}>{fARS(seniaNum)}</span></div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Saldo al retirar</span><span style={{ fontSize: 13.5, color: '#9ec6ec', fontWeight: 600 }}>{fARS(saldoContado)}</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Seña</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 600 }}>{fUSD(seniaNum)}</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Saldo al retirar</span><span style={{ fontSize: 13.5, color: '#9ec6ec', fontWeight: 600 }}>{fUSD(saldoContadoUSD)}</span></div>
             </>}
             {esCuotas && <>
               {antNum > 0 && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Anticipo</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{fUSD(antNum)}</span></div>}

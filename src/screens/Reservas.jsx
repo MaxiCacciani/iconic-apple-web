@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { fARS, fUSD } from '../lib/utils.js';
+import { validateCuotas } from '../lib/validation.js';
 import Modal from '../components/Modal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
-// tc: tipo de cambio del día, recibido desde App para no usar el valor constante
+// tc: tipo de cambio del día, recibido desde App para equivalencias en pesos
 function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
-  // Saldo en USD: el precio ya está en USD; la seña es ARS, la convertimos al TC actual
-  const senaUSD        = tc > 0 ? reserva.sena / tc : 0;
-  const saldoUSD       = Math.max(0, reserva.usd - senaUSD);
+  // La seña ya está en USD (congelada al TC del día en que se cobró)
+  const saldoUSD       = Math.max(0, reserva.usd - reserva.sena);
   const saldoARS       = saldoUSD * tc;
 
   const [metodo, setMetodo]         = useState('Transferencia');
@@ -17,14 +17,27 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
   const [cuotas, setCuotas]         = useState(6);
   const [cuotasCustom, setCuotasCustom] = useState(false);
   const [anticipo, setAnticipo]     = useState('');
+  const [primeraCuotaHoy, setPrimeraCuotaHoy] = useState(false);
 
   const equipoRef = reserva.equipoId ? equipos.find(e => e.id === reserva.equipoId) : null;
 
   const antNum      = parseFloat(anticipo || '0') || 0;
+  const esCuotas    = modalidad === 'cuotas';
   const aFinanciar  = Math.max(0, saldoUSD - antNum);
-  const cuotaMonto  = modalidad === 'cuotas' && cuotas ? Math.round(aFinanciar / cuotas) : 0;
+  const cuotaMonto  = esCuotas && cuotas ? Math.round(aFinanciar / cuotas) : 0;
+
+  const errors = (() => {
+    const e = [];
+    if (esCuotas) {
+      const ec = validateCuotas(cuotas); if (ec) e.push(ec);
+      if (antNum >= saldoUSD && saldoUSD > 0) e.push('El anticipo cubre todo el saldo — usá Contado en su lugar.');
+    }
+    return e;
+  })();
+  const canConfirm = errors.length === 0;
 
   const handleConfirm = () => {
+    if (!canConfirm) return;
     const equipoLabel = [reserva.equipo, reserva.spec].filter(Boolean).join(' · ');
     onConfirm({
       equipoId:    reserva.equipoId || null,
@@ -36,12 +49,13 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
       usd:         reserva.usd,
       costo:       equipoRef?.costo || null,
       tc,
-      modalidad:   modalidad === 'cuotas' ? 'cuotas' : 'contado',
-      cuotas:      modalidad === 'cuotas' ? cuotas : null,
-      anticipo:    modalidad === 'cuotas' ? antNum : null,
+      modalidad:   esCuotas ? 'cuotas' : 'contado',
+      cuotas:      esCuotas ? cuotas : null,
+      // La seña ya pagada se registra como parte del anticipo para que la venta cierre
+      anticipo:    reserva.sena + (esCuotas ? antNum : 0),
       metodo,
-      cuotaMonto:  modalidad === 'cuotas' ? cuotaMonto : null,
-      primeraCuotaHoy: false,
+      cuotaMonto:  esCuotas ? cuotaMonto : null,
+      primeraCuotaHoy: esCuotas ? primeraCuotaHoy : false,
       canje:       false,
       canjeEquipo: null,
       canjeValor:  null,
@@ -69,7 +83,7 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
           </div>
           <div>
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>Seña ya pagada</div>
-            <div style={{ fontSize: 13.5, fontWeight: 500, color: '#82b39d' }}>{fARS(reserva.sena)}</div>
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: '#82b39d' }}>{fUSD(reserva.sena)}</div>
           </div>
           <div>
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>Saldo pendiente</div>
@@ -126,6 +140,15 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
               <input type="text" inputMode="decimal" value={anticipo} onChange={e => setAnticipo(e.target.value.replace(/[^0-9.]/g,''))} placeholder="0" style={{ flex: 1, background: 'none', border: 'none', color: '#eef2f7', fontSize: 14 }} />
             </div>
           </div>
+          <button onClick={() => setPrimeraCuotaHoy(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '12px 14px', marginTop: 12, borderRadius: 10, border: `1px solid ${primeraCuotaHoy ? 'rgba(130,179,157,0.5)' : 'rgba(231,238,246,0.09)'}`, background: primeraCuotaHoy ? 'rgba(130,179,157,0.08)' : 'rgba(231,238,246,0.02)', cursor: 'pointer' }}>
+            <span style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${primeraCuotaHoy ? '#82b39d' : 'rgba(231,238,246,0.25)'}`, background: primeraCuotaHoy ? 'rgba(130,179,157,0.3)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {primeraCuotaHoy && <span style={{ fontSize: 10, color: '#eef2f7', fontWeight: 700 }}>✓</span>}
+            </span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: primeraCuotaHoy ? '#eef2f7' : '#a6afba' }}>Primera cuota hoy</div>
+              <div style={{ fontSize: 11, color: primeraCuotaHoy ? '#82b39d' : '#6a717b', marginTop: 1 }}>Se registra como cobrada · el resto arranca el mes que viene</div>
+            </div>
+          </button>
         </div>
       )}
 
@@ -143,9 +166,14 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
         </div>
       </div>
 
+      {errors.length > 0 && (
+        <div style={{ marginBottom: 14, padding: '10px 13px', borderRadius: 10, background: 'rgba(217,138,118,0.08)', border: '1px solid rgba(217,138,118,0.25)' }}>
+          {errors.map((e, i) => <div key={i} style={{ fontSize: 12, color: '#e6ab98', lineHeight: 1.7 }}>· {e}</div>)}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onClose} style={{ flex: 1, padding: 13, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
-        <button onClick={handleConfirm} style={{ flex: 2, padding: 13, borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(160deg, #eef2f6, #b7c3ce)', color: '#14171c', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+        <button onClick={handleConfirm} disabled={!canConfirm} style={{ flex: 2, padding: 13, borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: canConfirm ? 'linear-gradient(160deg, #eef2f6, #b7c3ce)' : 'rgba(231,238,246,0.05)', color: canConfirm ? '#14171c' : '#6a717b', fontSize: 14, fontWeight: 600, cursor: canConfirm ? 'pointer' : 'default' }}>
           Confirmar venta · {fUSD(reserva.usd)}
         </button>
       </div>
@@ -197,7 +225,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 26 }}>
           <div><div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Activas</div><div style={{ fontSize: 19, fontWeight: 600 }}>{activas.length} <span style={{ fontSize: 13, color: '#828a94', fontWeight: 400 }}>de {reservas.length}</span></div></div>
-          <div><div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>En señas</div><div style={{ fontSize: 19, fontWeight: 600, color: '#74a8d6', whiteSpace: 'nowrap' }}>{fARS(senasTot)}</div></div>
+          <div><div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>En señas</div><div style={{ fontSize: 19, fontWeight: 600, color: '#74a8d6', whiteSpace: 'nowrap' }}>{fUSD(senasTot)}</div></div>
         </div>
       </div>
 
@@ -221,7 +249,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
         {filtered.map(r => {
-          const pct = tc > 0 && r.usd > 0 ? Math.round(r.sena / (r.usd * tc) * 100) : 0;
+          const pct = r.usd > 0 ? Math.round(r.sena / r.usd * 100) : 0;
           const equipoRef = r.equipoId ? equipos.find(e => e.id === r.equipoId) : null;
           const esActiva = r.estado === 'activa';
           const esCancelada = r.estado === 'cancelada';
@@ -239,9 +267,9 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
               </div>
               <div>
                 <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 5 }}>Seña</div>
-                <div style={SERIF(25, '#9ec6ec')}>{fARS(r.sena)}</div>
+                <div style={SERIF(25, '#9ec6ec')}>{fUSD(r.sena)}</div>
                 <div style={{ fontSize: 12, color: '#828a94', marginTop: 5 }}>{pct}% del total · {fUSD(r.usd)}</div>
-                <div style={{ fontSize: 12, color: '#74a8d6', marginTop: 3 }}>Saldo: {fARS(Math.max(0, r.usd * tc - r.sena))}</div>
+                <div style={{ fontSize: 12, color: '#74a8d6', marginTop: 3 }}>Saldo: {fUSD(Math.max(0, r.usd - r.sena))} <span style={{ color: '#6a717b' }}>(≈ {fARS(Math.max(0, r.usd - r.sena) * tc)})</span></div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

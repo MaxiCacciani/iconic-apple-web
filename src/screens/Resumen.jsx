@@ -21,8 +21,11 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
   const [tcInput, setTcInput] = useState('');
 
   const disp = equipos.filter(e => e.estado === 'disponible');
-  const stockNuevos = disp.filter(e => e.cond === 'Nuevo').length;
-  const stockUsados = disp.length - stockNuevos;
+  const unidades = (arr) => arr.reduce((a, e) => a + (e.cantidad || 1), 0);
+  const unidadesDisp = unidades(disp);
+  const unidadesTot = unidades(equipos);
+  const stockNuevos = unidades(disp.filter(e => e.cond === 'Nuevo'));
+  const stockUsados = unidadesDisp - stockNuevos;
 
   // Ventas de hoy
   const ventasHoy = ventas.filter(v => v.fechaNum === todayNum);
@@ -70,7 +73,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
     cobrosVencidos.length > 0 && {
       dot: '#d98a76',
       titulo: `${cobrosVencidos.length} cuota${cobrosVencidos.length > 1 ? 's' : ''} vencida${cobrosVencidos.length > 1 ? 's' : ''} sin cobrar`,
-      detalle: `${fARS(montoVencido)} pendientes · gestioná en Agenda`,
+      detalle: `${fUSD(montoVencido)} pendientes · gestioná en Agenda`,
     },
     garProximas.length > 0 && {
       dot: '#9b93d6',
@@ -167,8 +170,8 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
           <div style={{ flex: 1, ...C.card, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <span style={C.label}>Stock disponible</span>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, marginTop: 14 }}>
-              <span style={{ fontSize: 46, fontWeight: 600, letterSpacing: -1 }}>{disp.length}</span>
-              <span style={{ fontSize: 14, color: '#828a94' }}>de {equipos.length} equipos</span>
+              <span style={{ fontSize: 46, fontWeight: 600, letterSpacing: -1 }}>{unidadesDisp}</span>
+              <span style={{ fontSize: 14, color: '#828a94' }}>de {unidadesTot} unidades</span>
             </div>
             <div style={{ fontSize: 13, color: '#a6afba', marginTop: 8 }}>{stockNuevos} nuevos · {stockUsados} usados</div>
           </div>
@@ -176,7 +179,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
             <span style={C.label}>Reservas activas</span>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, marginTop: 14 }}>
               <span style={{ fontSize: 46, fontWeight: 600, letterSpacing: -1 }}>{reservasActivas.length}</span>
-              {reservasSenasTot > 0 && <span style={{ fontSize: 14, color: '#828a94' }}>{fARS(reservasSenasTot)} en señas</span>}
+              {reservasSenasTot > 0 && <span style={{ fontSize: 14, color: '#828a94' }}>{fUSD(reservasSenasTot)} en señas</span>}
             </div>
             <div style={{ fontSize: 13, color: '#a6afba', marginTop: 8 }}>
               {reservasActivas.length === 0 ? 'Sin apartados activos' : 'Seña a cuenta · sin vencimiento'}
@@ -207,7 +210,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
                     <div style={{ fontSize: 12.5, color: '#828a94', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.equipo}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap' }}>{fARS(c.monto)}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap' }}>{fUSD(c.monto)}</div>
                     <div style={{ ...C.mono(10, '#93b8da'), letterSpacing: 1, textTransform: 'uppercase', marginTop: 2 }}>Cuota</div>
                   </div>
                 </div>
@@ -224,7 +227,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
             <>
               <div style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 13, color: '#a6afba' }}>Por cobrar</div>
-                <div style={C.serif(38, '#9ec6ec')}>{fARS(totPorCobrar)}</div>
+                <div style={C.serif(38, '#9ec6ec')}>{fUSD(totPorCobrar)}</div>
               </div>
               <div style={{ display: 'flex', height: 8, borderRadius: 8, overflow: 'hidden', marginBottom: 18, background: 'rgba(231,238,246,0.06)' }}>
                 <div style={{ width: `${(totCobrado / totAll) * 100}%`, background: '#82b39d' }} />
@@ -238,7 +241,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
                       <span style={{ width: 9, height: 9, borderRadius: 3, background: color, display: 'inline-block' }} />
                       <span style={{ fontSize: 13.5, color: '#a6afba' }}>{label}</span>
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' }}>{fARS(val)}</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' }}>{fUSD(val)}</span>
                   </div>
                 ))}
               </div>
