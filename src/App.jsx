@@ -223,7 +223,8 @@ export default function App() {
         if (!eq) continue;
         try {
           if (!esPhone(eq.categoria) && eq.cantidad > qtySold) {
-            await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - qtySold });
+            // Si venía de una reserva, las unidades restantes vuelven a estar disponibles
+            await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - qtySold, estado: 'disponible' });
           } else {
             await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
           }
@@ -236,7 +237,7 @@ export default function App() {
       setEquipos(prev => prev.map(e => {
         const qty = qtyPorEquipo.get(e.id);
         if (!qty) return e;
-        if (!esPhone(e.categoria) && e.cantidad > qty) return { ...e, cantidad: e.cantidad - qty };
+        if (!esPhone(e.categoria) && e.cantidad > qty) return { ...e, cantidad: e.cantidad - qty, estado: 'disponible' };
         return { ...e, estado: 'vendido' };
       }));
 
@@ -401,7 +402,8 @@ export default function App() {
 
   const clientesConCompras = useMemo(() =>
     clientes.map(c => {
-      const ventasCli = ventas.filter(v => v.clienteId === c.id || v.cliente === c.nombre);
+      // Vincular por ID; el nombre solo es fallback para ventas viejas sin cliente_id
+      const ventasCli = ventas.filter(v => v.clienteId ? v.clienteId === c.id : v.cliente === c.nombre);
       const idsVentas = new Set(ventasCli.map(v => v.id));
       const cobrosCli = cobros.filter(cb => idsVentas.has(cb.ventaId));
 
@@ -429,6 +431,7 @@ export default function App() {
           total: cbs.length,
           pagadas,
           monto: v.cuotaMonto || cbs[0].monto || 0,
+          restante: cbs.filter(cb => cb.estado !== 'cobrada').reduce((a, b) => a + b.monto, 0),
           prox: prox ? `${prox.d}/${prox.m}` : '',
           mora: vencida ? `${vencida.d}/${vencida.m}` : '',
         };

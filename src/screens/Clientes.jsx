@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DIAGNOSTICOS } from '../data/data.js';
-import { TODAY, MONTH_ABBR, fARS, fUSD, dnum } from '../lib/utils.js';
+import { TODAY, MONTH_ABBR, fUSD, dnum } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
 import { validateDNI, validateTel, isDNIDuplicate } from '../lib/validation.js';
@@ -225,7 +225,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
     planView = {
       equipo: plan.equipo, prox: plan.prox, mora: plan.mora || '',
       tieneMora: !!plan.mora,
-      restanteFmt: fUSD((plan.total - plan.pagadas) * plan.monto),
+      restanteFmt: fUSD(plan.restante ?? (plan.total - plan.pagadas) * plan.monto),
       label: `${plan.pagadas} de ${plan.total} cuotas pagadas`,
       dots: Array.from({ length: plan.total }, (_, i) => ({ pagada: i < plan.pagadas })),
     };

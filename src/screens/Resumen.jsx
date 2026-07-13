@@ -23,7 +23,8 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
   const disp = equipos.filter(e => e.estado === 'disponible');
   const unidades = (arr) => arr.reduce((a, e) => a + (e.cantidad || 1), 0);
   const unidadesDisp = unidades(disp);
-  const unidadesTot = unidades(equipos);
+  // Total = unidades físicas en el local (disponibles + reservadas); lo vendido no cuenta
+  const unidadesTot = unidades(equipos.filter(e => e.estado !== 'vendido'));
   const stockNuevos = unidades(disp.filter(e => e.cond === 'Nuevo'));
   const stockUsados = unidadesDisp - stockNuevos;
 

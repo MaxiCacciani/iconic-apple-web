@@ -479,7 +479,7 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
                   <div style={{ fontSize: 13, color: '#eef2f7', fontWeight: 500 }}>
                     {v.cuotas} cuotas{v.canje ? ' + canje' : ''}
                   </div>
-                  {v.cuotaMonto && <div style={{ fontSize: 11.5, color: '#74a8d6', marginTop: 2 }}>{fUSD(v.cuotaMonto)} / mes</div>}
+                  {v.cuotaMonto > 0 && <div style={{ fontSize: 11.5, color: '#74a8d6', marginTop: 2 }}>{fUSD(v.cuotaMonto)} / mes</div>}
                   {v.anticipo > 0 && <div style={{ fontSize: 11, color: '#828a94', marginTop: 1 }}>Anticipo {fUSD(v.anticipo)}</div>}
                   {v.canje && v.canjeValor > 0 && <div style={{ fontSize: 11, color: '#82b39d', marginTop: 1 }}>Canje {fUSD(v.canjeValor)}</div>}
                 </div>
@@ -511,10 +511,10 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
                   <span style={{ fontSize: 11, color: ganancia >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace" }}>
                     {ganancia >= 0 ? '+' : ''}{fUSD(ganancia)}{margen !== null ? ` · ${margen}%` : ''}
                   </span>
-                  <button onClick={() => setEditingCosto(v.id)} title="Editar costo" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5058', fontSize: 11, padding: 0, lineHeight: 1 }}>✎</button>
+                  <button onClick={e => { e.stopPropagation(); setEditingCosto(v.id); }} title="Editar costo" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4a5058', fontSize: 11, padding: 0, lineHeight: 1 }}>✎</button>
                 </div>
               ) : (
-                <button onClick={() => setEditingCosto(v.id)} style={{ fontSize: 11, color: '#4a5058', background: 'none', border: 'none', cursor: 'pointer', marginTop: 3, display: 'block', marginLeft: 'auto' }}>
+                <button onClick={e => { e.stopPropagation(); setEditingCosto(v.id); }} style={{ fontSize: 11, color: '#4a5058', background: 'none', border: 'none', cursor: 'pointer', marginTop: 3, display: 'block', marginLeft: 'auto' }}>
                   + cargar costo
                 </button>
               )}

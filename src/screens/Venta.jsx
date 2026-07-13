@@ -385,6 +385,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
       const ea = validateAnticipo(anticipo, vPrecioUSD); if (ea) e.push(ea);
       if (canje && canjeNum > 0 && antNum + canjeNum >= vPrecioUSD)
         e.push('La suma de anticipo y canje cubre el total — usá Contado en su lugar.');
+      if (!ec && aFinanciar > 0 && cuotaMonto < 1)
+        e.push('El monto por cuota da menos de US$ 1 — reducí la cantidad de cuotas.');
     }
     if (!esCuotas && tieneApartado) { const es = validateSenia(seniaContado, vPrecioUSD); if (es) e.push(es); }
     if (canje) {
@@ -789,7 +791,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                   const isCons  = cDef.tieneControles;
                   const precioMostrar = e.esRegalo ? 0 : effPrecio(e) * (e.cantidadVenta || 1);
                   return (
-                    <div key={e.id} style={{ paddingBottom: carrito.length > 1 && i < carrito.length - 1 ? 12 : 0, borderBottom: carrito.length > 1 && i < carrito.length - 1 ? '1px solid rgba(231,238,246,0.06)' : 'none' }}>
+                    <div key={e.carritoId} style={{ paddingBottom: carrito.length > 1 && i < carrito.length - 1 ? 12 : 0, borderBottom: carrito.length > 1 && i < carrito.length - 1 ? '1px solid rgba(231,238,246,0.06)' : 'none' }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                         <div style={{ fontSize: 14.5, fontWeight: 600, color: '#eef2f7' }}>
                           {e.modelo}
@@ -859,18 +861,25 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
             </>}
           </div>
 
-          {esCuotas && cuotas > 0 && (
-            <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
-              <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase' }}>Plan de pago</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
-                <span style={{ fontSize: 15, color: '#a6afba' }}>{cuotas} cuotas de</span>
-                <span style={SERIF(26, '#9ec6ec')}>{fUSD(cuotaMonto)}</span>
+          {esCuotas && cuotas > 0 && (() => {
+            const ultima = Math.max(0, Math.round((aFinanciar - cuotaMonto * (cuotas - 1)) * 100) / 100);
+            const ajusta = aFinanciar > 0 && ultima !== cuotaMonto;
+            return (
+              <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(231,238,246,0.08)' }}>
+                <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase' }}>Plan de pago</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 8 }}>
+                  <span style={{ fontSize: 15, color: '#a6afba' }}>{ajusta ? `${cuotas - 1} cuotas de` : `${cuotas} cuotas de`}</span>
+                  <span style={SERIF(26, '#9ec6ec')}>{fUSD(cuotaMonto)}</span>
+                </div>
+                {ajusta && (
+                  <div style={{ fontSize: 12.5, color: '#a6afba', marginTop: 4 }}>+ última cuota de <span style={{ color: '#9ec6ec', fontWeight: 600 }}>{fUSD(ultima)}</span> (ajuste de redondeo)</div>
+                )}
+                {primeraCuotaHoy && (
+                  <div style={{ fontSize: 12, color: '#82b39d', marginTop: 5 }}>Cuota 1 hoy · cobrada · resto desde el mes que viene</div>
+                )}
               </div>
-              {primeraCuotaHoy && (
-                <div style={{ fontSize: 12, color: '#82b39d', marginTop: 5 }}>Cuota 1 hoy · cobrada · resto desde el mes que viene</div>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           <div style={{ marginTop: 22 }}>
             {carrito.length > 0 && cliente && ventaErrors.length > 0 && (

@@ -50,6 +50,8 @@ create policy "solo_autenticados" on public.ventas
 --    - Subir / reemplazar / borrar archivos: solo autenticados.
 --    - La LECTURA pública no se toca: el bucket es público y los links
 --      existentes de garantías siguen funcionando.
+-- Solo se tocan políticas que refieran al bucket garantias — las de otros
+-- buckets (si existieran) quedan intactas.
 do $$
 declare pol record;
 begin
@@ -57,6 +59,9 @@ begin
     select policyname
     from pg_policies
     where schemaname = 'storage' and tablename = 'objects'
+      and (policyname ilike '%garantias%'
+           or coalesce(qual, '') ilike '%garantias%'
+           or coalesce(with_check, '') ilike '%garantias%')
   loop
     execute format('drop policy %I on storage.objects', pol.policyname);
   end loop;

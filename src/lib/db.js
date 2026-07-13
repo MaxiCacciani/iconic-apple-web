@@ -417,7 +417,11 @@ export async function updateCobroEstado(id, estado) {
 }
 
 export async function generateCobros(ventaId, ventaData) {
-  if (!ventaData.cuotas || !ventaData.cuotaMonto) return [];
+  if (!ventaData.cuotas) return [];
+  if (!ventaData.cuotaMonto || ventaData.cuotaMonto < 1) {
+    // Nunca dejar una venta financiada sin cuotas en silencio
+    throw new Error('el monto por cuota es menor a US$ 1 — revisá el plan de pago');
+  }
   const today = localDateISO();
   const { primeraCuotaHoy, cuotas, cuotaMonto } = ventaData;
 
@@ -428,7 +432,7 @@ export async function generateCobros(ventaId, ventaData) {
     - (ventaData.canje && ventaData.canjeValor ? Number(ventaData.canjeValor) : 0)
   );
   const ajusteUltima = Math.round((totalFinanciado - cuotaMonto * (cuotas - 1)) * 100) / 100;
-  const montoUltima = totalFinanciado > 0 && ajusteUltima > 0 ? ajusteUltima : cuotaMonto;
+  const montoUltima = totalFinanciado > 0 ? Math.max(0, ajusteUltima) : cuotaMonto;
 
   const makeRow = (i) => {
     const esHoy = primeraCuotaHoy && i === 0;

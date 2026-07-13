@@ -31,6 +31,8 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
     if (esCuotas) {
       const ec = validateCuotas(cuotas); if (ec) e.push(ec);
       if (antNum >= saldoUSD && saldoUSD > 0) e.push('El anticipo cubre todo el saldo — usá Contado en su lugar.');
+      if (!ec && aFinanciar > 0 && cuotaMonto < 1)
+        e.push('El monto por cuota da menos de US$ 1 — reducí la cantidad de cuotas.');
     }
     return e;
   })();
@@ -174,7 +176,7 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onClose} style={{ flex: 1, padding: 13, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
         <button onClick={handleConfirm} disabled={!canConfirm} style={{ flex: 2, padding: 13, borderRadius: 11, border: '1px solid rgba(255,255,255,0.2)', background: canConfirm ? 'linear-gradient(160deg, #eef2f6, #b7c3ce)' : 'rgba(231,238,246,0.05)', color: canConfirm ? '#14171c' : '#6a717b', fontSize: 14, fontWeight: 600, cursor: canConfirm ? 'pointer' : 'default' }}>
-          Confirmar venta · {fUSD(reserva.usd)}
+          Confirmar venta · saldo {fUSD(saldoUSD)}
         </button>
       </div>
     </Modal>
