@@ -66,6 +66,7 @@ const NAV_ITEMS = [
   { key: 'cobros',   label: 'Agenda'   },
   { key: 'reservas', label: 'Reservas' },
   { key: 'clientes', label: 'Clientes' },
+  { key: 'ganancias', label: 'Ganancias' },
 ];
 
 const NAV_ICONS = {
@@ -75,6 +76,7 @@ const NAV_ICONS = {
   cobros:   '◷',
   reservas: '⬡',
   clientes: '◎',
+  ganancias: '◆',
 };
 
 export default function Header({ screen, onNav, onLogout }) {

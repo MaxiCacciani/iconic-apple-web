@@ -14,6 +14,7 @@ import Cobros from './screens/Cobros.jsx';
 import Reservas from './screens/Reservas.jsx';
 import Clientes from './screens/Clientes.jsx';
 import Ventas from './screens/Ventas.jsx';
+import Ganancias from './screens/Ganancias.jsx';
 
 export default function App() {
   const navigate = useNavigate();
@@ -510,6 +511,7 @@ export default function App() {
         {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} tc={tc} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
         {visited.has('clientes') && <div style={{ display: screen === 'clientes' ? 'block' : 'none' }}><Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} /></div>}
         {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}
+        {visited.has('ganancias') && <div style={{ display: screen === 'ganancias' ? 'block' : 'none' }}><Ganancias ventas={ventas} /></div>}
       </main>
       <Toast msg={toast} />
     </div>
