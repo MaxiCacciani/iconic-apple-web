@@ -1,16 +1,36 @@
-# React + Vite
+# Iconic — Gestión
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de gestión para **Iconic** (Villa Carlos Paz): venta de iPhones, productos Apple y accesorios. Maneja stock con IMEI, ventas al contado y financiadas en cuotas, plan canje, reservas con seña, agenda de cobros, cartera de clientes con cuenta corriente, reclamos y garantías adjuntas.
 
-Currently, two official plugins are available:
+**Stack:** React 19 + Vite · Supabase (PostgreSQL + Auth + Storage, con RLS) · Vercel (deploy automático desde `master`).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**Regla de oro:** todos los valores (precios, cuotas, señas, canjes) viven en **USD**; los pesos son equivalencias calculadas con el TC del día. El porqué está en [docs/explicacion.md](docs/explicacion.md).
 
-## React Compiler
+## Correr local
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+cp .env.example .env   # completar con las credenciales de Supabase
+npm install
+npm run dev            # http://localhost:5173
+```
 
-## Expanding the ESLint configuration
+## Documentación
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+| Documento | Para qué |
+|-----------|----------|
+| [Tutorial: tu primera venta](docs/tutorial-primera-venta.md) | Recorrido completo stock → venta en cuotas → agenda → cliente |
+| [Cómo hacer](docs/como-hacer.md) | Correr local, ejecutar SQL en Supabase, deploy, entorno dev, garantías, vendedores |
+| [Referencia](docs/referencia.md) | Pantallas, reglas de negocio, modelo de datos, monedas |
+| [Explicación](docs/explicacion.md) | Por qué USD, señas congeladas, saldo derivado, RLS |
+
+## Estructura
+
+```
+src/
+├── App.jsx              # Estado global, handlers de negocio, derivación de saldos
+├── screens/             # Resumen, Stock, Venta, Cobros, Reservas, Clientes, Ventas, Login
+├── components/          # Header (nav desktop+móvil), Modal, EquipoPicker, VentaDetalleModal…
+├── lib/                 # db.js (Supabase), utils.js (formatos/fechas), validation.js
+└── data/data.js         # Categorías, modelos, colores, proveedores
+supabase/                # policies.sql (RLS) y migraciones — se pegan en el SQL Editor
+```
