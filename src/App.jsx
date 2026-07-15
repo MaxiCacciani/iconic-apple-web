@@ -252,6 +252,7 @@ export default function App() {
       }));
 
       // Comisiones: equipos vendidos que pertenecen a otro negocio
+      let comisionMsg = '';
       const miNegocio = session?.user?.app_metadata?.negocio_id || null;
       if (miNegocio) {
         const filas = [];
@@ -268,9 +269,9 @@ export default function App() {
             await db.createComisiones(filas);
             const cms = await db.fetchComisiones();
             setComisiones(cms);
-            showToast(`Venta registrada · comisión de ${filas.length} equipo${filas.length > 1 ? 's' : ''} para el negocio dueño`);
+            comisionMsg = ` · comisión al negocio dueño (${filas.length} equipo${filas.length > 1 ? 's' : ''})`;
           } catch {
-            showToast('Venta registrada, pero no se pudo registrar la comisión al otro negocio.');
+            comisionMsg = ' · ⚠ no se pudo registrar la comisión al otro negocio';
           }
         }
       }
@@ -290,7 +291,7 @@ export default function App() {
       if (stockError) {
         showToast('Venta registrada. Error al actualizar el stock — revisá el estado de los equipos.');
       } else {
-        showToast('Venta registrada con éxito');
+        showToast('Venta registrada con éxito' + comisionMsg);
       }
       setTimeout(() => go('ventas'), 300);
     } catch (e) {
