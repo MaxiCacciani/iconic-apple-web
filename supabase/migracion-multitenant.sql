@@ -81,11 +81,10 @@ alter table public.negocios enable row level security;
 create policy "mi_negocio" on public.negocios for select to authenticated
   using (id = public.negocio_actual());
 
--- Compartidos por negocio
+-- Stock GLOBAL: lo comparten todos los negocios (decisión de producto)
 alter table public.equipos enable row level security;
-create policy "negocio" on public.equipos for all to authenticated
-  using (negocio_id = public.negocio_actual())
-  with check (negocio_id = public.negocio_actual());
+create policy "stock_global" on public.equipos for all to authenticated
+  using (true) with check (true);
 
 alter table public.vendedores enable row level security;
 create policy "negocio" on public.vendedores for all to authenticated
