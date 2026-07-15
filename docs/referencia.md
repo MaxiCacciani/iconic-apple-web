@@ -20,6 +20,15 @@ Qué hace cada pieza del sistema. Datos exactos, sin rodeos. Para el *por qué*,
 - **ARS**: solo equivalencias informativas, calculadas con el TC del día. Formato `$ 1.850.000` (`fARS`).
 - **TC del día**: editable desde Resumen, se guarda en `localStorage` (`tc_dia`) y se congela en cada venta (columna `tc`).
 
+## Multi-usuario (negocios y usuarios)
+
+- **Stock global**: todos los negocios operan el mismo inventario. Un equipo vendido o reservado por cualquiera queda bloqueado para todos.
+- **Privado por usuario**: ventas, cobros, clientes, reservas, reclamos y ganancias — cada usuario ve solo lo suyo, incluso dentro del mismo negocio.
+- **Reservas anónimas**: un equipo "Reservado" por otro usuario se ve bloqueado pero sin detalle de quién lo reservó (decisión de producto, jul 2026). Solo el dueño de la reserva puede convertirla o cancelarla.
+- **Vendedores por negocio**: compartidos entre los usuarios del mismo negocio, únicos por negocio+número.
+- El `negocio_id` viaja firmado en el token (app_metadata); tras vincular un usuario a un negocio debe cerrar sesión y volver a entrar.
+- Alta de negocios/usuarios: manual, instructivo al pie de [supabase/migracion-multitenant.sql](../supabase/migracion-multitenant.sql).
+
 ## Reglas de negocio
 
 - **Garantía**: se elige al registrar la venta — 3 meses (default), hasta una fecha específica, o "sin garantía". Se guarda en `ventas.garantia_vence` / `sin_garantia`; ventas anteriores a la migración usan el fallback de 3 meses.
