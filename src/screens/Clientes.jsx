@@ -213,6 +213,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
 
   const enMora = !!(cli.plan && cli.plan.mora);
   const cliCompras = cli.compras.map(co => {
+    if (co.sinGarantia) return { ...co, garVigente: false, garLabel: 'Sin garantía' };
     const vig = dnum(co.gVence) >= dnum(TODAY);
     const gd = co.gVence;
     const fechaGar = `${String(gd.d).padStart(2,'0')}/${String(gd.m).padStart(2,'0')}/${gd.y}`;

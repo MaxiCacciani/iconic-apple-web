@@ -22,7 +22,7 @@ Qué hace cada pieza del sistema. Datos exactos, sin rodeos. Para el *por qué*,
 
 ## Reglas de negocio
 
-- **Garantía**: 3 meses desde la fecha de venta (calculada si la columna `garantia_vence` está vacía).
+- **Garantía**: se elige al registrar la venta — 3 meses (default), hasta una fecha específica, o "sin garantía". Se guarda en `ventas.garantia_vence` / `sin_garantia`; ventas anteriores a la migración usan el fallback de 3 meses.
 - **Cuotas**: mínimo 2, máximo 60. Monto = redondeo de (precio − anticipo − canje) / cuotas. **La última cuota ajusta el redondeo** para que la suma dé exacta; el comprobante lo muestra cuando difiere. Monto mínimo por cuota: US$ 1.
 - **Señas**: en USD (congelan su valor al TC del día en que se cobran). No pueden igualar o superar el precio.
 - **Canje**: el equipo entregado entra al stock con `precio = costo = valor de canje`, proveedor "Plan canje". En cuotas, el canje se descuenta del monto a financiar.

@@ -63,9 +63,10 @@ const normMetodo = (m) => {
 };
 
 function rowToVenta(r) {
-  // garantia_vence: usa la columna si existe, si no la calcula como 1 año desde la fecha de venta
-  let garantiaVence = r.garantia_vence || null;
-  if (!garantiaVence && r.fecha) {
+  // garantia_vence: columna explícita; si no hay y no es "sin garantía",
+  // fallback legacy de 3 meses desde la fecha de venta
+  let garantiaVence = r.garantia_vence ? r.garantia_vence.slice(0, 10) : null;
+  if (!garantiaVence && !r.sin_garantia && r.fecha) {
     const [y, m, d] = r.fecha.slice(0, 10).split('-').map(Number);
     const date = new Date(y, m - 1 + 3, d);
     garantiaVence = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -93,6 +94,7 @@ function rowToVenta(r) {
     garantiaUrl: r.garantia_url || null,
     garantiaNombre: r.garantia_nombre || null,
     garantiaVence,
+    sinGarantia: r.sin_garantia || false,
     lineas: r.lineas || null,
     vendedorNumero: r.vendedor_numero ?? null,
   };
@@ -183,8 +185,13 @@ function equipoToRow(e) {
 }
 
 function ventaToRow(v) {
+  const hoy = localDateISO();
+  // Garantía: fecha explícita, "sin garantía", o default de 3 meses
+  const garantiaVence = v.sinGarantia ? null : (v.garantiaVence || addMonthsISO(hoy, 3));
   return {
-    fecha: localDateISO(),
+    fecha: hoy,
+    garantia_vence: garantiaVence,
+    sin_garantia: v.sinGarantia || false,
     equipo_label: v.equipo,
     imei: v.imei || null,
     categoria: v.categoria || null,

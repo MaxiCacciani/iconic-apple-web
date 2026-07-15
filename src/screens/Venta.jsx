@@ -241,6 +241,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [canjeControles, setCanjeControles] = useState('1');
   const [canjeExtras, setCanjeExtras] = useState('');
   const [canjeValor, setCanjeValor] = useState('');
+  const [garantiaTipo, setGarantiaTipo] = useState('3m');   // '3m' | 'fecha' | 'sin'
+  const [garantiaFecha, setGarantiaFecha] = useState('');
   const [packs, setPacks] = useState(loadPacks);
   const [packModal, setPackModal] = useState(null);
   const [packMsg, setPackMsg] = useState('');
@@ -276,6 +278,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     setCanjeControles('1');
     setCanjeExtras('');
     setCanjeValor('');
+    setGarantiaTipo('3m');
+    setGarantiaFecha('');
     setPackMsg('');
   };
 
@@ -399,6 +403,15 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
         const eb = validateBat(canjeBat); if (eb) e.push(`Batería canje: ${eb}`);
       }
     }
+    if (garantiaTipo === 'fecha') {
+      if (!garantiaFecha) e.push('Elegí hasta qué fecha cubre la garantía.');
+      else {
+        const [gy, gm, gd] = garantiaFecha.split('-').map(Number);
+        const h = new Date();
+        if (gy * 10000 + gm * 100 + gd <= h.getFullYear() * 10000 + (h.getMonth() + 1) * 100 + h.getDate())
+          e.push('La fecha de garantía debe ser posterior a hoy.');
+      }
+    }
     return e;
   })();
 
@@ -439,6 +452,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
       canjeEquipo: canje ? canjeEquipoLabel : null,
       canjeValor: canje ? canjeNum : null, lineas,
       vendedorNumero: vendedorNumero ? parseInt(vendedorNumero, 10) : null,
+      sinGarantia: garantiaTipo === 'sin',
+      garantiaVence: garantiaTipo === 'fecha' ? garantiaFecha : null,
       canjeEquipoData: canje && canjeModelo ? {
         categoria: canjeCategoria, modelo: canjeModelo, cap: canjeCap || null,
         color: canjeColor || null, cond: canjeCond,
@@ -748,6 +763,22 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               </div>
             )}
 
+            <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, color: '#6a717b' }}>Garantía</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: garantiaTipo === 'fecha' ? 10 : 16, flexWrap: 'wrap' }}>
+              {[['3m', '3 meses'], ['fecha', 'Hasta una fecha…'], ['sin', 'Sin garantía']].map(([k, l]) => {
+                const sel = garantiaTipo === k;
+                return (
+                  <button key={k} onClick={() => setGarantiaTipo(k)} style={{ padding: '9px 14px', borderRadius: 10, border: `1px solid ${sel ? 'rgba(130,179,157,0.5)' : 'rgba(231,238,246,0.09)'}`, background: sel ? 'rgba(130,179,157,0.12)' : 'rgba(231,238,246,0.02)', color: sel ? '#82b39d' : '#828a94', fontSize: 13, fontWeight: sel ? 600 : 400, cursor: 'pointer' }}>{l}</button>
+                );
+              })}
+            </div>
+            {garantiaTipo === 'fecha' && (
+              <div style={{ marginBottom: 16 }}>
+                <input type="date" value={garantiaFecha} onChange={e => setGarantiaFecha(e.target.value)}
+                  style={{ padding: '10px 13px', borderRadius: 10, background: '#1e2228', border: '1px solid rgba(130,179,157,0.35)', color: '#eef2f7', fontSize: 13.5, colorScheme: 'dark', fontFamily: "'Hanken Grotesk', sans-serif" }} />
+              </div>
+            )}
+
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, color: '#6a717b' }}>
               {canje && canjeNum > 0 ? 'Método para el saldo' : 'Forma de pago'}
             </div>
@@ -849,6 +880,12 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                 <span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{metodo}</span>
               </div>
             )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13.5, color: '#828a94' }}>Garantía</span>
+              <span style={{ fontSize: 13.5, color: garantiaTipo === 'sin' ? '#d98a76' : '#eef2f7', fontWeight: 500 }}>
+                {garantiaTipo === 'sin' ? 'Sin garantía' : garantiaTipo === 'fecha' ? (garantiaFecha ? `Hasta ${garantiaFecha.split('-').reverse().join('/')}` : 'Elegí la fecha') : '3 meses'}
+              </span>
+            </div>
             {!esCuotas && !tieneApartado && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Modalidad</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>Contado · pago total</span></div>}
             {!esCuotas && tieneApartado && <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Modalidad</span><span style={{ fontSize: 13.5, color: '#74a8d6', fontWeight: 500 }}>Apartado con seña</span></div>
