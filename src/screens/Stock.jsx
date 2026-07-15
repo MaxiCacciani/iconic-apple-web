@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CATEGORIAS, getCatDef, esPhone, DEFECTOS_COMUNES, getModelos, getCaps, getColores, PROVEEDORES } from '../data/data.js';
 import { fARS, fUSD, batColor } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
+import Paginacion from '../components/Paginacion.jsx';
 import { validateIMEI, isIMEIDuplicate, validatePrecio, validateCosto, validateBat, validateCantidad } from '../lib/validation.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
@@ -342,6 +343,9 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
   const [estado, setEstado] = useState('todos');
   const [modal, setModal] = useState(null); // null | { mode:'add'|'edit', item?:{} }
   const [pendingDelete, setPendingDelete] = useState(null); // id del equipo a confirmar
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 20;
+  useEffect(() => { setPagina(1); }, [search, cat, cond, estado]);
 
   const q = search.trim().toLowerCase();
 
@@ -466,7 +470,7 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
         {filtered.length === 0 && (
           <div style={{ padding: 40, textAlign: 'center', color: '#6a717b', fontSize: 14 }}>Sin productos que coincidan con el filtro.</div>
         )}
-        {filtered.map(e => {
+        {filtered.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA).map(e => {
           const eDef     = getCatDef(e.categoria);
           const isPhone  = eDef.tieneIMEI;
           const isCons   = eDef.tieneControles;
@@ -574,6 +578,7 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
       </div>
       </div>
       </div>
+      <Paginacion total={filtered.length} pagina={pagina} porPagina={POR_PAGINA} onCambio={setPagina} />
     </div>
   );
 }

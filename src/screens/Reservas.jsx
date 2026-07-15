@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { fARS, fUSD } from '../lib/utils.js';
 import { validateCuotas } from '../lib/validation.js';
 import Modal from '../components/Modal.jsx';
+import Paginacion from '../components/Paginacion.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -189,6 +190,9 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
   const [convertiendo, setConvertiendo] = useState(null);
   const [cancelandoId, setCancelandoId] = useState(null);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 20;
+  useEffect(() => { setPagina(1); }, [q, filtroEstado]);
 
   const qLow = q.trim().toLowerCase();
   const filtered = reservas.filter(r => {
@@ -250,7 +254,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-        {filtered.map(r => {
+        {filtered.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA).map(r => {
           const pct = r.usd > 0 ? Math.round(r.sena / r.usd * 100) : 0;
           const equipoRef = r.equipoId ? equipos.find(e => e.id === r.equipoId) : null;
           const esActiva = r.estado === 'activa';
@@ -330,6 +334,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
           );
         })}
       </div>
+      <Paginacion total={filtered.length} pagina={pagina} porPagina={POR_PAGINA} onCambio={setPagina} />
     </div>
   );
 }

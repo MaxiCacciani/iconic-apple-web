@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DIAGNOSTICOS } from '../data/data.js';
+import Paginacion from '../components/Paginacion.jsx';
 import { TODAY, MONTH_ABBR, fUSD, dnum } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
@@ -483,6 +484,9 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
   const [view, setView] = useState('list');
   const [clienteId, setClienteId] = useState(null);
   const [search, setSearch] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 20;
+  useEffect(() => { setPagina(1); }, [search]);
 
   const openCliente = (id) => { setClienteId(id); setView('detail'); };
   const goBack = () => setView('list');
@@ -535,7 +539,7 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
       </div>
 
       <div>
-        {clienteRows.map(c => {
+        {clienteRows.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA).map(c => {
           const enMora = !!(c.plan && c.plan.mora);
           const tieneReclamos = (c.reclamos || []).length > 0;
           return (
@@ -563,6 +567,7 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
       </div>
       </div>
       </div>
+      <Paginacion total={clienteRows.length} pagina={pagina} porPagina={POR_PAGINA} onCambio={setPagina} />
     </div>
   );
 }

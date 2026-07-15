@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { fARS, fUSD } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
+import Paginacion from '../components/Paginacion.jsx';
 import { uploadGarantia, deleteGarantia } from '../lib/db.js';
 
 function EditCostoModal({ venta, onSave, onClose }) {
@@ -189,7 +190,9 @@ export default function Ventas({ ventas, tc, vendedores, onSaveVendedor, onUpdat
   const [filtroMod, setFiltroMod] = useState('todas');
   const [filtroMet, setFiltroMet] = useState('todos');
   const [filtroMes, setFiltroMes] = useState('todos');
-  const [verTodas, setVerTodas] = useState(false);
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 20;
+  useEffect(() => { setPagina(1); }, [q, filtroMod, filtroMet, filtroMes]);
   const [uploadingFor, setUploadingFor] = useState(null);
   const [viewingGarantia, setViewingGarantia] = useState(null);
   const [deletingVenta, setDeletingVenta] = useState(null);
@@ -237,7 +240,7 @@ export default function Ventas({ ventas, tc, vendedores, onSaveVendedor, onUpdat
   });
 
   const anyFilter = filtroMod !== 'todas' || filtroMet !== 'todos' || filtroMes !== 'todos' || !!qLow;
-  const display = verTodas || anyFilter ? filtered : filtered.slice(0, 10);
+  const display = filtered.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   const totalUSD = ventas.reduce((a, b) => a + b.usd, 0);
   const totalCosto = ventas.filter(v => v.costo).reduce((a, b) => a + (b.costo || 0), 0);
@@ -379,21 +382,10 @@ export default function Ventas({ ventas, tc, vendedores, onSaveVendedor, onUpdat
       </div>
 
       {/* Result count */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <div style={{ marginBottom: 10 }}>
         <span style={{ ...MONO(11), color: '#6a717b' }}>
           Mostrando {display.length} de {filtered.length} registros
-          {!verTodas && !anyFilter && filtered.length > 10 && ' (últimos 10)'}
         </span>
-        {filtered.length > 10 && !verTodas && (
-          <button onClick={() => setVerTodas(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#74a8d6' }}>
-            Ver todas las {filtered.length} ventas →
-          </button>
-        )}
-        {verTodas && filtered.length > 10 && (
-          <button onClick={() => setVerTodas(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#74a8d6' }}>
-            Mostrar solo últimas 10 ↑
-          </button>
-        )}
       </div>
 
       {/* Table (scrollable en móvil) */}
@@ -539,6 +531,8 @@ export default function Ventas({ ventas, tc, vendedores, onSaveVendedor, onUpdat
 
       </div>
       </div>
+
+      <Paginacion total={filtered.length} pagina={pagina} porPagina={POR_PAGINA} onCambio={setPagina} />
 
       {display.length > 0 && (
         <div style={{ ...MONO(11), marginTop: 14, textAlign: 'center', color: '#4a5058' }}>
