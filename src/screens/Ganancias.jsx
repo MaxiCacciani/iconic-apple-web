@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { fUSD } from '../lib/utils.js';
+import { getCatDef } from '../data/data.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -62,6 +63,14 @@ export default function Ganancias({ ventas }) {
     }
   }
   const cats = [...porCat.entries()].map(([cat, e]) => ({ cat, ...e })).sort((a, b) => b.ganancia - a.ganancia);
+
+  // Dos grandes grupos: equipos (categorías con tab propia) vs accesorios
+  const sumaGrupo = (filtro) => cats.filter(filtro).reduce(
+    (a, c) => ({ ingresos: a.ingresos + c.ingresos, costo: a.costo + c.costo, ganancia: a.ganancia + c.ganancia, unidades: a.unidades + c.unidades }),
+    { ingresos: 0, costo: 0, ganancia: 0, unidades: 0 }
+  );
+  const gEquipos = sumaGrupo(c => getCatDef(c.cat).enTabPropia);
+  const gAccesorios = sumaGrupo(c => !getCatDef(c.cat).enTabPropia);
   const maxAbs = Math.max(...cats.map(c => Math.abs(c.ganancia)), 1);
   const margenTotal = totalCosto > 0 ? Math.round((totalGanancia / totalCosto) * 100) : null;
 
@@ -120,6 +129,25 @@ export default function Ganancias({ ventas }) {
           <div style={statVal('#9ec6ec')}>{cats.length}</div>
           <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 5 }}>con ventas en el período</div>
         </div>
+      </div>
+
+      {/* Equipos vs Accesorios */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        {[['Equipos', '📱', gEquipos, '#74a8d6'], ['Accesorios', '🔌', gAccesorios, '#9b93d6']].map(([nombre, icono, g, color]) => {
+          const margen = g.costo > 0 ? Math.round((g.ganancia / g.costo) * 100) : null;
+          return (
+            <div key={nombre} style={{ ...card, borderColor: `${color}33` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 15 }}>{icono}</span>
+                <span style={{ ...MONO(10, color), letterSpacing: 2, textTransform: 'uppercase' }}>{nombre}</span>
+              </div>
+              <div style={statVal(g.ganancia >= 0 ? '#82b39d' : '#d98a76')}>{g.ganancia >= 0 ? '+' : ''}{fUSD(g.ganancia)}</div>
+              <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 6 }}>
+                {g.unidades} ud{g.unidades !== 1 ? 's' : ''}. · vendido {fUSD(g.ingresos)}{margen !== null ? ` · ${margen}% margen` : ''}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {lineasSinCosto > 0 && (
