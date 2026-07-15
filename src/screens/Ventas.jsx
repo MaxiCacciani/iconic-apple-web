@@ -59,11 +59,6 @@ function DeleteVentaModal({ venta, onConfirm, onClose }) {
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
-const VEND_KEY = 'iconic_vendedores';
-function loadVendedores() {
-  try { return JSON.parse(localStorage.getItem(VEND_KEY) || '[]'); }
-  catch { return []; }
-}
 
 function VendedorModal({ vendedores, onSave, onClose }) {
   const nextNum = vendedores.length > 0 ? Math.max(...vendedores.map(v => v.numero)) + 1 : 1;
@@ -189,7 +184,7 @@ async function validateGarantiaFiles(files) {
   return null;
 }
 
-export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onError }) {
+export default function Ventas({ ventas, tc, vendedores, onSaveVendedor, onUpdateVenta, onDeleteVenta, onError }) {
   const [q, setQ] = useState('');
   const [filtroMod, setFiltroMod] = useState('todas');
   const [filtroMet, setFiltroMet] = useState('todos');
@@ -200,15 +195,12 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
   const [deletingVenta, setDeletingVenta] = useState(null);
   const [editingCosto, setEditingCosto] = useState(null);
   const [detalleVenta, setDetalleVenta] = useState(null);
-  const [vendedores, setVendedores] = useState(loadVendedores);
   const [vendedorModal, setVendedorModal] = useState(false);
   const fileInputRef = useRef(null);
   const uploadingForRef = useRef(null);
 
   const saveVendedor = (v) => {
-    const updated = [...vendedores.filter(x => x.numero !== v.numero), v].sort((a,b) => a.numero - b.numero);
-    setVendedores(updated);
-    localStorage.setItem(VEND_KEY, JSON.stringify(updated));
+    onSaveVendedor(v);
     setVendedorModal(false);
   };
 

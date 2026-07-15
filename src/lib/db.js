@@ -470,6 +470,24 @@ export async function generateCobros(ventaId, ventaData) {
   return [];
 }
 
+// ─── VENDEDORES ──────────────────────────────────────────────────────────────
+
+export async function fetchVendedores() {
+  const { data, error } = await supabase
+    .from('vendedores')
+    .select('numero, nombre')
+    .order('numero', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export async function saveVendedor(v) {
+  const { error } = await supabase
+    .from('vendedores')
+    .upsert({ numero: v.numero, nombre: v.nombre }, { onConflict: 'negocio_id,numero' });
+  if (error) throw error;
+}
+
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
 
 export async function uploadGarantia(ventaId, files) {

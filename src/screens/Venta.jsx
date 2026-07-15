@@ -182,11 +182,7 @@ function CanjeCombo({ value, onChange, options, placeholder }) {
 
 // ─── VendedorStep ────────────────────────────────────────────────────────────
 
-function VendedorStep({ vendedorNumero, onChangeNumero }) {
-  const vendedores = (() => {
-    try { return JSON.parse(localStorage.getItem('iconic_vendedores') || '[]'); }
-    catch { return []; }
-  })();
+function VendedorStep({ vendedores, vendedorNumero, onChangeNumero }) {
   const num = parseInt(vendedorNumero, 10);
   const vendedor = vendedores.find(v => v.numero === num);
 
@@ -216,7 +212,7 @@ function VendedorStep({ vendedorNumero, onChangeNumero }) {
 
 // ─── Venta (main) ────────────────────────────────────────────────────────────
 
-export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApartado, onAddCliente }) {
+export default function Venta({ equipos, clientes, tc, vendedores, onConfirm, onConfirmApartado, onAddCliente }) {
   const [carrito, setCarrito] = useState([]);
   const [modalidad, setModalidad] = useState('contado');
   const [cuotas, setCuotas] = useState(6);
@@ -246,13 +242,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [packs, setPacks] = useState(loadPacks);
   const [packModal, setPackModal] = useState(null);
   const [packMsg, setPackMsg] = useState('');
-  const [vendedorNumero, setVendedorNumero] = useState(() => {
-
-    try {
-      const vs = JSON.parse(localStorage.getItem('iconic_vendedores') || '[]');
-      return vs.length > 0 ? String(vs[vs.length - 1].numero) : '';
-    } catch { return ''; }
-  });
+  const [vendedorNumero, setVendedorNumero] = useState('');
 
   const resetForm = () => {
     setCarrito([]);
@@ -800,7 +790,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <span style={stepLabel()}>05</span>
               <span style={{ fontSize: 15.5, fontWeight: 600 }}>Vendedor</span>
             </div>
-            <VendedorStep vendedorNumero={vendedorNumero} onChangeNumero={setVendedorNumero} />
+            <VendedorStep vendedores={vendedores || []} vendedorNumero={vendedorNumero} onChangeNumero={setVendedorNumero} />
           </div>
         </div>
 

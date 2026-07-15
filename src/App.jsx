@@ -28,6 +28,7 @@ export default function App() {
   const [ventas, setVentas]     = useState([]);
   const [cobros, setCobros]     = useState([]);
   const [reservas, setReservas] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [tc, setTc]             = useState(() => {
     const saved = localStorage.getItem('tc_dia');
@@ -62,13 +63,15 @@ export default function App() {
       db.fetchVentas(),
       db.fetchCobros(),
       db.fetchReservas(),
+      db.fetchVendedores().catch(() => []),  // tabla nueva: tolerar BD sin migrar
     ])
-      .then(([eqs, cls, vts, cbs, rvs]) => {
+      .then(([eqs, cls, vts, cbs, rvs, vds]) => {
         setEquipos(eqs);
         setClientes(cls);
         setVentas(vts);
         setCobros(cbs);
         setReservas(rvs);
+        setVendedores(vds);
       })
       .catch(err => showToast('Error al cargar datos: ' + err.message))
       .finally(() => setLoading(false));
@@ -394,6 +397,16 @@ export default function App() {
     }
   };
 
+  const handleSaveVendedor = async (v) => {
+    try {
+      await db.saveVendedor(v);
+      setVendedores(prev => [...prev.filter(x => x.numero !== v.numero), v].sort((a, b) => a.numero - b.numero));
+      showToast('Vendedor guardado');
+    } catch (e) {
+      showToast('Error al guardar vendedor: ' + e.message);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -507,11 +520,11 @@ export default function App() {
       <main className="main-pad">
         {visited.has('resumen')  && <div style={{ display: screen === 'resumen'  ? 'block' : 'none' }}><Resumen equipos={equipos} ventas={ventas} cobros={cobros} reservas={reservas} tc={tc} onUpdateTC={updateTC} onGoCobros={() => go('cobros')} /></div>}
         {visited.has('stock')    && <div style={{ display: screen === 'stock'    ? 'block' : 'none' }}><Stock equipos={equipos} tc={tc} onAdd={addEquipo} onUpdate={updateEquipo} onDelete={deleteEquipo} /></div>}
-        {visited.has('venta')    && <div style={{ display: screen === 'venta'    ? 'block' : 'none' }}><Venta equipos={equipos} clientes={clientesConCompras} tc={tc} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} /></div>}
+        {visited.has('venta')    && <div style={{ display: screen === 'venta'    ? 'block' : 'none' }}><Venta equipos={equipos} clientes={clientesConCompras} tc={tc} vendedores={vendedores} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} /></div>}
         {visited.has('cobros')   && <div style={{ display: screen === 'cobros'   ? 'block' : 'none' }}><Cobros cobros={cobros} ventas={ventas} onUpdateEstado={updateCobroEstado} onRefresh={() => db.fetchCobros().then(setCobros).catch(() => {})} /></div>}
         {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} tc={tc} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
         {visited.has('clientes') && <div style={{ display: screen === 'clientes' ? 'block' : 'none' }}><Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} /></div>}
-        {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}
+        {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} vendedores={vendedores} onSaveVendedor={handleSaveVendedor} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}
         {visited.has('ganancias') && <div style={{ display: screen === 'ganancias' ? 'block' : 'none' }}><Ganancias ventas={ventas} /></div>}
       </main>
       <Toast msg={toast} />
