@@ -475,7 +475,7 @@ export default function App() {
             fecha:          v.fechaLabel,
             garantiaUrl:    v.garantiaUrl || null,
             garantiaNombre: v.garantiaNombre || null,
-            sinGarantia: v.sinGarantia || false,
+            sinGarantia: v.sinGarantia || !v.garantiaVence,
             gVence: gPartes
               ? { y: gPartes[0], m: gPartes[1], d: gPartes[2] }
               : { y: 2099, m: 1, d: 1 },

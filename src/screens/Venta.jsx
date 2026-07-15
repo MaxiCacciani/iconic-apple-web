@@ -371,6 +371,8 @@ export default function Venta({ equipos, clientes, tc, vendedores, onConfirm, on
   ].filter(Boolean).join(' · ');
   const puedeApartado = carrito.length <= 1;
   const hayRegalos = carrito.some(c => c.esRegalo);
+  // Solo los equipos (categorías con tab propia) llevan garantía; los accesorios no
+  const hayEquipos = carrito.some(c => getCatDef(c.categoria).enTabPropia);
 
   const ventaErrors = (() => {
     const e = [];
@@ -393,7 +395,7 @@ export default function Venta({ equipos, clientes, tc, vendedores, onConfirm, on
         const eb = validateBat(canjeBat); if (eb) e.push(`Batería canje: ${eb}`);
       }
     }
-    if (garantiaTipo === 'fecha') {
+    if (hayEquipos && garantiaTipo === 'fecha') {
       if (!garantiaFecha) e.push('Elegí hasta qué fecha cubre la garantía.');
       else {
         const [gy, gm, gd] = garantiaFecha.split('-').map(Number);
@@ -442,8 +444,8 @@ export default function Venta({ equipos, clientes, tc, vendedores, onConfirm, on
       canjeEquipo: canje ? canjeEquipoLabel : null,
       canjeValor: canje ? canjeNum : null, lineas,
       vendedorNumero: vendedorNumero ? parseInt(vendedorNumero, 10) : null,
-      sinGarantia: garantiaTipo === 'sin',
-      garantiaVence: garantiaTipo === 'fecha' ? garantiaFecha : null,
+      sinGarantia: !hayEquipos || garantiaTipo === 'sin',
+      garantiaVence: hayEquipos && garantiaTipo === 'fecha' ? garantiaFecha : null,
       canjeEquipoData: canje && canjeModelo ? {
         categoria: canjeCategoria, modelo: canjeModelo, cap: canjeCap || null,
         color: canjeColor || null, cond: canjeCond,
@@ -753,6 +755,7 @@ export default function Venta({ equipos, clientes, tc, vendedores, onConfirm, on
               </div>
             )}
 
+            {hayEquipos && <>
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, color: '#6a717b' }}>Garantía</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: garantiaTipo === 'fecha' ? 10 : 16, flexWrap: 'wrap' }}>
               {[['3m', '3 meses'], ['fecha', 'Hasta una fecha…'], ['sin', 'Sin garantía']].map(([k, l]) => {
@@ -768,6 +771,7 @@ export default function Venta({ equipos, clientes, tc, vendedores, onConfirm, on
                   style={{ padding: '10px 13px', borderRadius: 10, background: '#1e2228', border: '1px solid rgba(130,179,157,0.35)', color: '#eef2f7', fontSize: 13.5, colorScheme: 'dark', fontFamily: "'Hanken Grotesk', sans-serif" }} />
               </div>
             )}
+            </>}
 
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, color: '#6a717b' }}>
               {canje && canjeNum > 0 ? 'Método para el saldo' : 'Forma de pago'}
@@ -872,8 +876,8 @@ export default function Venta({ equipos, clientes, tc, vendedores, onConfirm, on
             )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13.5, color: '#828a94' }}>Garantía</span>
-              <span style={{ fontSize: 13.5, color: garantiaTipo === 'sin' ? '#d98a76' : '#eef2f7', fontWeight: 500 }}>
-                {garantiaTipo === 'sin' ? 'Sin garantía' : garantiaTipo === 'fecha' ? (garantiaFecha ? `Hasta ${garantiaFecha.split('-').reverse().join('/')}` : 'Elegí la fecha') : '3 meses'}
+              <span style={{ fontSize: 13.5, color: !hayEquipos || garantiaTipo === 'sin' ? '#828a94' : '#eef2f7', fontWeight: 500 }}>
+                {!hayEquipos ? 'Sin garantía · accesorios' : garantiaTipo === 'sin' ? 'Sin garantía' : garantiaTipo === 'fecha' ? (garantiaFecha ? `Hasta ${garantiaFecha.split('-').reverse().join('/')}` : 'Elegí la fecha') : '3 meses'}
               </span>
             </div>
             {!esCuotas && !tieneApartado && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Modalidad</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>Contado · pago total</span></div>}
