@@ -482,9 +482,13 @@ export async function fetchVendedores() {
 }
 
 export async function saveVendedor(v) {
+  // negocio_id explícito desde el JWT: la tabla es nueva y el default
+  // puede no estar aplicado según la versión de la migración
+  const { data: { session } } = await supabase.auth.getSession();
+  const negocioId = session?.user?.app_metadata?.negocio_id || null;
   const { error } = await supabase
     .from('vendedores')
-    .upsert({ numero: v.numero, nombre: v.nombre }, { onConflict: 'negocio_id,numero' });
+    .upsert({ negocio_id: negocioId, numero: v.numero, nombre: v.nombre }, { onConflict: 'negocio_id,numero' });
   if (error) throw error;
 }
 

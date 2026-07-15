@@ -28,6 +28,9 @@ create or replace function public.negocio_actual()
 returns uuid language sql stable as
 $$ select nullif(auth.jwt() -> 'app_metadata' ->> 'negocio_id', '')::uuid $$;
 
+-- 2b) Default de tenant en vendedores (la función ya existe)
+alter table public.vendedores alter column negocio_id set default public.negocio_actual();
+
 -- 3) Columnas de tenant y dueño (los defaults evitan tocar el frontend)
 alter table public.equipos   add column if not exists negocio_id uuid default public.negocio_actual();
 alter table public.clientes  add column if not exists negocio_id uuid default public.negocio_actual(),
