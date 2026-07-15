@@ -45,6 +45,7 @@ function rowToEquipo(r) {
     defectos: r.defectos || '',
     costo: r.costo ?? null,
     proveedor: r.proveedor || '',
+    negocioId: r.negocio_id || null,
   };
 }
 
@@ -372,6 +373,7 @@ export async function updateReservaEstado(id, estado) {
 
 export async function deleteVenta(id) {
   await supabase.from('cobros').delete().eq('venta_id', id);
+  await supabase.from('comisiones').delete().eq('venta_id', id);
   const { error } = await supabase.from('ventas').delete().eq('id', id);
   if (error) throw error;
 }
@@ -468,6 +470,46 @@ export async function generateCobros(ventaId, ventaData) {
   }
   if (error) throw error;
   return [];
+}
+
+// ─── NEGOCIOS Y COMISIONES ───────────────────────────────────────────────────
+
+export async function fetchNegocios() {
+  const { data, error } = await supabase.from('negocios').select('id, nombre, comision_pct');
+  if (error) throw error;
+  return data.map(n => ({ id: n.id, nombre: n.nombre, comisionPct: Number(n.comision_pct ?? 10) }));
+}
+
+export async function createComisiones(rows) {
+  if (!rows.length) return;
+  const { error } = await supabase.from('comisiones').insert(rows.map(c => ({
+    venta_id: c.ventaId || null,
+    equipo_label: c.equipo,
+    monto: c.monto,
+    porcentaje: c.porcentaje,
+    negocio_duenio: c.negocioDuenio,
+    negocio_vendedor: c.negocioVendedor,
+  })));
+  if (error) throw error;
+}
+
+export async function fetchComisiones() {
+  const { data, error } = await supabase
+    .from('comisiones')
+    .select('*')
+    .order('fecha', { ascending: false });
+  if (error) throw error;
+  return data.map(c => ({
+    id: c.id,
+    ventaId: c.venta_id,
+    equipo: c.equipo_label,
+    monto: Number(c.monto),
+    porcentaje: Number(c.porcentaje),
+    negocioDuenio: c.negocio_duenio,
+    negocioVendedor: c.negocio_vendedor,
+    fechaNum: isoToNum(c.fecha),
+    fechaLabel: isoToLabel(c.fecha),
+  }));
 }
 
 // ─── VENDEDORES ──────────────────────────────────────────────────────────────

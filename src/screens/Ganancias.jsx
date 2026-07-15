@@ -24,7 +24,7 @@ const dateInput = {
   colorScheme: 'dark', fontFamily: "'Hanken Grotesk', sans-serif",
 };
 
-export default function Ganancias({ ventas }) {
+export default function Ganancias({ ventas, comisiones = [], negocios = [], miNegocioId = null }) {
   const hoy = isoHoy(0);
   const [desde, setDesde] = useState(hoy.slice(0, 8) + '01');
   const [hasta, setHasta] = useState(hoy);
@@ -71,6 +71,17 @@ export default function Ganancias({ ventas }) {
   );
   const gEquipos = sumaGrupo(c => getCatDef(c.cat).enTabPropia);
   const gAccesorios = sumaGrupo(c => !getCatDef(c.cat).enTabPropia);
+
+  // Comisiones entre negocios en el período (cobradas = mis equipos vendidos
+  // por otro negocio; pagadas = yo vendí equipos ajenos)
+  const comisEnRango = comisiones.filter(c => c.fechaNum >= dNum && c.fechaNum <= hNum);
+  const nombreNegocio = (id) => negocios.find(n => n.id === id)?.nombre || 'otro negocio';
+  const cobradas = comisEnRango.filter(c => c.negocioDuenio === miNegocioId);
+  const pagadas = comisEnRango.filter(c => c.negocioVendedor === miNegocioId && c.negocioDuenio !== miNegocioId);
+  const totCobradas = cobradas.reduce((a, b) => a + b.monto, 0);
+  const totPagadas = pagadas.reduce((a, b) => a + b.monto, 0);
+  const hayComisiones = cobradas.length > 0 || pagadas.length > 0;
+  const gananciaNeta = totalGanancia + totCobradas - totPagadas;
   const maxAbs = Math.max(...cats.map(c => Math.abs(c.ganancia)), 1);
   const margenTotal = totalCosto > 0 ? Math.round((totalGanancia / totalCosto) * 100) : null;
 
@@ -149,6 +160,35 @@ export default function Ganancias({ ventas }) {
           );
         })}
       </div>
+
+      {/* Comisiones entre negocios */}
+      {hayComisiones && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          {[['Comisiones cobradas', cobradas, totCobradas, '#82b39d', 'por equipos tuyos vendidos por', c => nombreNegocio(c.negocioVendedor)],
+            ['Comisiones pagadas', pagadas, totPagadas, '#d98a76', 'por vender equipos de', c => nombreNegocio(c.negocioDuenio)]].map(([titulo, lista, total, color, sub, otro]) => (
+            <div key={titulo} style={{ ...card, borderColor: `${color}33` }}>
+              <div style={{ ...MONO(10, color), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>{titulo}</div>
+              <div style={statVal(color)}>{titulo.includes('cobradas') ? '+' : '−'}{fUSD(total)}</div>
+              <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 6 }}>{lista.length} equipo{lista.length !== 1 ? 's' : ''}</div>
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {lista.slice(0, 4).map(c => (
+                  <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#a6afba' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.equipo} · {sub} {otro(c)}</span>
+                    <span style={{ color, whiteSpace: 'nowrap' }}>{fUSD(c.monto)} · {c.porcentaje}%</span>
+                  </div>
+                ))}
+                {lista.length > 4 && <div style={{ fontSize: 11, color: '#6a717b' }}>+{lista.length - 4} más en el período</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {hayComisiones && (
+        <div style={{ marginBottom: 20, padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(130,179,157,0.25)', background: 'rgba(130,179,157,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ fontSize: 13, color: '#a6afba' }}>Ganancia neta del período (ventas + comisiones cobradas − pagadas)</span>
+          <span style={{ ...SERIF(24, gananciaNeta >= 0 ? '#82b39d' : '#d98a76') }}>{gananciaNeta >= 0 ? '+' : ''}{fUSD(gananciaNeta)}</span>
+        </div>
+      )}
 
       {lineasSinCosto > 0 && (
         <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 10, background: 'rgba(217,184,118,0.07)', border: '1px solid rgba(217,184,118,0.25)', fontSize: 12.5, color: '#d9b876' }}>

@@ -29,6 +29,8 @@ export default function App() {
   const [cobros, setCobros]     = useState([]);
   const [reservas, setReservas] = useState([]);
   const [vendedores, setVendedores] = useState([]);
+  const [negocios, setNegocios] = useState([]);
+  const [comisiones, setComisiones] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [tc, setTc]             = useState(() => {
     const saved = localStorage.getItem('tc_dia');
@@ -64,8 +66,12 @@ export default function App() {
       db.fetchCobros(),
       db.fetchReservas(),
       db.fetchVendedores().catch(() => []),  // tabla nueva: tolerar BD sin migrar
+      db.fetchNegocios().catch(() => []),
+      db.fetchComisiones().catch(() => []),
     ])
-      .then(([eqs, cls, vts, cbs, rvs, vds]) => {
+      .then(([eqs, cls, vts, cbs, rvs, vds, ngs, cms]) => {
+        setNegocios(ngs);
+        setComisiones(cms);
         setEquipos(eqs);
         setClientes(cls);
         setVentas(vts);
@@ -244,6 +250,30 @@ export default function App() {
         if (!esPhone(e.categoria) && e.cantidad > qty) return { ...e, cantidad: e.cantidad - qty, estado: 'disponible' };
         return { ...e, estado: 'vendido' };
       }));
+
+      // Comisiones: equipos vendidos que pertenecen a otro negocio
+      const miNegocio = session?.user?.app_metadata?.negocio_id || null;
+      if (miNegocio) {
+        const filas = [];
+        for (const l of lineasVenta) {
+          if (!l.equipoId || l.esRegalo) continue;
+          const eq = equipos.find(e => e.id === l.equipoId);
+          if (!eq?.negocioId || eq.negocioId === miNegocio) continue;
+          const pct = negocios.find(n => n.id === eq.negocioId)?.comisionPct ?? 10;
+          const montoOk = Math.round((l.usd || 0) * (l.cantidad || 1) * pct / 100 * 100) / 100;
+          if (montoOk > 0) filas.push({ ventaId: nueva.id, equipo: l.equipo, monto: montoOk, porcentaje: pct, negocioDuenio: eq.negocioId, negocioVendedor: miNegocio });
+        }
+        if (filas.length > 0) {
+          try {
+            await db.createComisiones(filas);
+            const cms = await db.fetchComisiones();
+            setComisiones(cms);
+            showToast(`Venta registrada · comisión de ${filas.length} equipo${filas.length > 1 ? 's' : ''} para el negocio dueño`);
+          } catch {
+            showToast('Venta registrada, pero no se pudo registrar la comisión al otro negocio.');
+          }
+        }
+      }
 
       // Agregar equipo de canje al stock
       if (ventaData.canje && ventaData.canjeEquipoData) {
@@ -525,7 +555,7 @@ export default function App() {
         {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} tc={tc} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
         {visited.has('clientes') && <div style={{ display: screen === 'clientes' ? 'block' : 'none' }}><Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} /></div>}
         {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} vendedores={vendedores} onSaveVendedor={handleSaveVendedor} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}
-        {visited.has('ganancias') && <div style={{ display: screen === 'ganancias' ? 'block' : 'none' }}><Ganancias ventas={ventas} /></div>}
+        {visited.has('ganancias') && <div style={{ display: screen === 'ganancias' ? 'block' : 'none' }}><Ganancias ventas={ventas} comisiones={comisiones} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} /></div>}
       </main>
       <Toast msg={toast} />
     </div>

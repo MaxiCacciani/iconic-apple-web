@@ -26,6 +26,7 @@ Qué hace cada pieza del sistema. Datos exactos, sin rodeos. Para el *por qué*,
 - **Privado por usuario**: ventas, cobros, clientes, reservas, reclamos y ganancias — cada usuario ve solo lo suyo, incluso dentro del mismo negocio.
 - **Reservas anónimas**: un equipo "Reservado" por otro usuario se ve bloqueado pero sin detalle de quién lo reservó (decisión de producto, jul 2026). Solo el dueño de la reserva puede convertirla o cancelarla.
 - **Vendedores por negocio**: compartidos entre los usuarios del mismo negocio, únicos por negocio+número.
+- **Comisiones entre negocios**: si vendés un equipo cargado por otro negocio, se genera automáticamente una comisión = `comision_pct` del dueño × precio de venta (default 10%, editable por SQL en `negocios`). Informativa, sin estados de pago; visible para ambos negocios y sumada/restada en el dashboard de Ganancias (los regalos no generan comisión).
 - El `negocio_id` viaja firmado en el token (app_metadata); tras vincular un usuario a un negocio debe cerrar sesión y volver a entrar.
 - Alta de negocios/usuarios: manual, instructivo al pie de [supabase/migracion-multitenant.sql](../supabase/migracion-multitenant.sql).
 
