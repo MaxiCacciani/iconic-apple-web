@@ -79,7 +79,15 @@ export default function App() {
         setReservas(rvs);
         setVendedores(vds);
       })
-      .catch(err => showToast('Error al cargar datos: ' + err.message))
+      .catch(err => {
+        // Sesión vieja inválida (token vencido/revocado): volver al login
+        // en silencio en vez de mostrar un error que se resuelve solo
+        if (err?.status === 401 || /JWT|token|Unauthorized/i.test(err?.message || '')) {
+          supabase.auth.signOut();
+          return;
+        }
+        showToast('Error al cargar datos: ' + err.message);
+      })
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
