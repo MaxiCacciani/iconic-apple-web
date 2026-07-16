@@ -28,6 +28,7 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
   const hoy = isoHoy(0);
   const [desde, setDesde] = useState(hoy.slice(0, 8) + '01');
   const [hasta, setHasta] = useState(hoy);
+  const [detalleNegocio, setDetalleNegocio] = useState(null);
 
   const presets = [
     ['Este mes', hoy.slice(0, 8) + '01', hoy],
@@ -205,15 +206,49 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
           <div style={{ padding: '20px 24px', borderRadius: 16, border: '1px solid rgba(231,238,246,0.1)', background: '#181b20', marginBottom: 20 }}>
             <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Cuenta corriente entre negocios · acumulada (capital + comisiones)</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {filas.map(({ n, meDebe, leDebo, saldo }) => (
-                <div key={n.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{n.nombre}</span>
-                  <span style={{ fontSize: 12, color: '#828a94' }}>te debe {fUSD(meDebe)} · le debés {fUSD(leDebo)}</span>
-                  <span style={{ fontSize: 15, fontWeight: 600, color: saldo >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
-                    saldo {saldo >= 0 ? 'a tu favor' : 'en contra'}: {fUSD(Math.abs(saldo))}
-                  </span>
-                </div>
-              ))}
+              {filas.map(({ n, meDebe, leDebo, saldo }) => {
+                const abierto = detalleNegocio === n.id;
+                const movs = comisiones
+                  .filter(c => (c.negocioDuenio === miNegocioId && c.negocioVendedor === n.id) || (c.negocioVendedor === miNegocioId && c.negocioDuenio === n.id))
+                  .sort((a, b) => b.fechaNum - a.fechaNum);
+                return (
+                  <div key={n.id}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{n.nombre}</span>
+                      <span style={{ fontSize: 12, color: '#828a94' }}>te debe {fUSD(meDebe)} · le debés {fUSD(leDebo)}</span>
+                      <span style={{ fontSize: 15, fontWeight: 600, color: saldo >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
+                        saldo {saldo >= 0 ? 'a tu favor' : 'en contra'}: {fUSD(Math.abs(saldo))}
+                      </span>
+                      <button onClick={() => setDetalleNegocio(abierto ? null : n.id)}
+                        style={{ padding: '4px 11px', borderRadius: 7, border: '1px solid rgba(231,238,246,0.12)', background: 'rgba(231,238,246,0.03)', color: '#74a8d6', fontSize: 12, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>
+                        {abierto ? 'Ocultar detalle ↑' : `Ver detalle (${movs.length}) ↓`}
+                      </button>
+                    </div>
+                    {abierto && (
+                      <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.02)', border: '1px solid rgba(231,238,246,0.07)', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {movs.map(c => {
+                          const cobro = c.negocioDuenio === miNegocioId;
+                          const total = c.monto + c.capital;
+                          return (
+                            <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, flexWrap: 'wrap' }}>
+                              <span style={{ ...MONO(11), flexShrink: 0 }}>{c.fechaLabel}</span>
+                              <span style={{ color: '#a6afba', flex: 1, minWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {c.equipo} · {cobro ? `vendido por ${n.nombre}` : `vendiste vos (equipo de ${n.nombre})`}
+                              </span>
+                              <span style={{ color: '#828a94', whiteSpace: 'nowrap' }}>
+                                {c.capital > 0 ? `capital ${fUSD(c.capital)}` : ''}{c.capital > 0 && c.monto > 0 ? ' + ' : ''}{c.monto > 0 ? `com. ${fUSD(c.monto)}` : ''}
+                              </span>
+                              <span style={{ fontWeight: 600, color: cobro ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
+                                {cobro ? '+' : '−'}{fUSD(total)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
