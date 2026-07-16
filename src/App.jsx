@@ -257,12 +257,15 @@ export default function App() {
       if (miNegocio) {
         const filas = [];
         for (const l of lineasVenta) {
-          if (!l.equipoId || l.esRegalo) continue;
+          if (!l.equipoId) continue;
           const eq = equipos.find(e => e.id === l.equipoId);
-          if (!eq?.negocioId || eq.negocioId === miNegocio) continue;
-          const pct = negocios.find(n => n.id === eq.negocioId)?.comisionPct ?? 10;
-          const montoOk = Math.round((l.usd || 0) * (l.cantidad || 1) * pct / 100 * 100) / 100;
-          if (montoOk > 0) filas.push({ ventaId: nueva.id, equipo: l.equipo, monto: montoOk, porcentaje: pct, negocioDuenio: eq.negocioId, negocioVendedor: miNegocio });
+          const duenio = l.negocioDuenio || eq?.negocioId || null;
+          if (!duenio || duenio === miNegocio) continue;
+          // Al dueño le corresponde el capital (costo) + la comisión manual de la venta
+          const capital = Math.round((l.costo || eq?.costo || 0) * (l.cantidad || 1) * 100) / 100;
+          const comision = l.comision || 0;
+          if (capital > 0 || comision > 0)
+            filas.push({ ventaId: nueva.id, equipo: l.equipo, monto: comision, capital, porcentaje: 0, negocioDuenio: duenio, negocioVendedor: miNegocio });
         }
         if (filas.length > 0) {
           try {
@@ -551,7 +554,7 @@ export default function App() {
       <main className="main-pad">
         {visited.has('resumen')  && <div style={{ display: screen === 'resumen'  ? 'block' : 'none' }}><Resumen equipos={equipos} ventas={ventas} cobros={cobros} reservas={reservas} tc={tc} onUpdateTC={updateTC} onGoCobros={() => go('cobros')} /></div>}
         {visited.has('stock')    && <div style={{ display: screen === 'stock'    ? 'block' : 'none' }}><Stock equipos={equipos} tc={tc} onAdd={addEquipo} onUpdate={updateEquipo} onDelete={deleteEquipo} /></div>}
-        {visited.has('venta')    && <div style={{ display: screen === 'venta'    ? 'block' : 'none' }}><Venta equipos={equipos} clientes={clientesConCompras} tc={tc} vendedores={vendedores} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} /></div>}
+        {visited.has('venta')    && <div style={{ display: screen === 'venta'    ? 'block' : 'none' }}><Venta equipos={equipos} clientes={clientesConCompras} tc={tc} vendedores={vendedores} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} /></div>}
         {visited.has('cobros')   && <div style={{ display: screen === 'cobros'   ? 'block' : 'none' }}><Cobros cobros={cobros} ventas={ventas} onUpdateEstado={updateCobroEstado} onRefresh={() => db.fetchCobros().then(setCobros).catch(() => {})} /></div>}
         {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} tc={tc} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
         {visited.has('clientes') && <div style={{ display: screen === 'clientes' ? 'block' : 'none' }}><Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} /></div>}

@@ -174,7 +174,7 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
                 {lista.slice(0, 4).map(c => (
                   <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#a6afba' }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.equipo} · {sub} {otro(c)}</span>
-                    <span style={{ color, whiteSpace: 'nowrap' }}>{fUSD(c.monto)} · {c.porcentaje}%</span>
+                    <span style={{ color, whiteSpace: 'nowrap' }}>{fUSD(c.monto)}{c.capital > 0 ? ` + capital ${fUSD(c.capital)}` : ''}</span>
                   </div>
                 ))}
                 {lista.length > 4 && <div style={{ fontSize: 11, color: '#6a717b' }}>+{lista.length - 4} más en el período</div>}
@@ -189,6 +189,35 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
           <span style={{ ...SERIF(24, gananciaNeta >= 0 ? '#82b39d' : '#d98a76') }}>{gananciaNeta >= 0 ? '+' : ''}{fUSD(gananciaNeta)}</span>
         </div>
       )}
+
+      {/* Cuenta corriente entre negocios (acumulada, todos los períodos) */}
+      {(() => {
+        const otros = negocios.filter(n => n.id !== miNegocioId);
+        const filas = otros.map(n => {
+          const meDebe = comisiones.filter(c => c.negocioDuenio === miNegocioId && c.negocioVendedor === n.id)
+            .reduce((a, b) => a + b.monto + b.capital, 0);
+          const leDebo = comisiones.filter(c => c.negocioVendedor === miNegocioId && c.negocioDuenio === n.id)
+            .reduce((a, b) => a + b.monto + b.capital, 0);
+          return { n, meDebe, leDebo, saldo: meDebe - leDebo };
+        }).filter(f => f.meDebe > 0 || f.leDebo > 0);
+        if (filas.length === 0) return null;
+        return (
+          <div style={{ padding: '20px 24px', borderRadius: 16, border: '1px solid rgba(231,238,246,0.1)', background: '#181b20', marginBottom: 20 }}>
+            <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Cuenta corriente entre negocios · acumulada (capital + comisiones)</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {filas.map(({ n, meDebe, leDebo, saldo }) => (
+                <div key={n.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{n.nombre}</span>
+                  <span style={{ fontSize: 12, color: '#828a94' }}>te debe {fUSD(meDebe)} · le debés {fUSD(leDebo)}</span>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: saldo >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
+                    saldo {saldo >= 0 ? 'a tu favor' : 'en contra'}: {fUSD(Math.abs(saldo))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {lineasSinCosto > 0 && (
         <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 10, background: 'rgba(217,184,118,0.07)', border: '1px solid rgba(217,184,118,0.25)', fontSize: 12.5, color: '#d9b876' }}>
