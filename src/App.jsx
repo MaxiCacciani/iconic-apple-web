@@ -362,6 +362,7 @@ export default function App() {
       await db.deleteVenta(id);
       setVentas(prev => prev.filter(v => v.id !== id));
       setCobros(prev => prev.filter(c => c.ventaId !== id));
+      setComisiones(prev => prev.filter(c => c.ventaId !== id));
 
       // Best-effort: restaurar equipos al stock (agrupando líneas por equipo)
       if (venta?.lineas?.length > 0) {
