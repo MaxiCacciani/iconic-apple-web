@@ -191,24 +191,26 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
         </div>
       )}
 
-      {/* Cuenta corriente entre negocios (acumulada, todos los períodos) */}
+      {/* Cuenta corriente entre negocios: movimientos del período + saldo histórico */}
       {(() => {
+        const sumar = (lista, duenio, vendedor) => lista
+          .filter(c => c.negocioDuenio === duenio && c.negocioVendedor === vendedor)
+          .reduce((a, b) => a + b.monto + b.capital, 0);
         const otros = negocios.filter(n => n.id !== miNegocioId);
         const filas = otros.map(n => {
-          const meDebe = comisiones.filter(c => c.negocioDuenio === miNegocioId && c.negocioVendedor === n.id)
-            .reduce((a, b) => a + b.monto + b.capital, 0);
-          const leDebo = comisiones.filter(c => c.negocioVendedor === miNegocioId && c.negocioDuenio === n.id)
-            .reduce((a, b) => a + b.monto + b.capital, 0);
-          return { n, meDebe, leDebo, saldo: meDebe - leDebo };
-        }).filter(f => f.meDebe > 0 || f.leDebo > 0);
+          const meDebe = sumar(comisEnRango, miNegocioId, n.id);
+          const leDebo = sumar(comisEnRango, n.id, miNegocioId);
+          const saldoHist = sumar(comisiones, miNegocioId, n.id) - sumar(comisiones, n.id, miNegocioId);
+          return { n, meDebe, leDebo, saldo: meDebe - leDebo, saldoHist };
+        }).filter(f => f.meDebe > 0 || f.leDebo > 0 || f.saldoHist !== 0);
         if (filas.length === 0) return null;
         return (
           <div style={{ padding: '20px 24px', borderRadius: 16, border: '1px solid rgba(231,238,246,0.1)', background: '#181b20', marginBottom: 20 }}>
-            <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Cuenta corriente entre negocios · acumulada (capital + comisiones)</div>
+            <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Cuenta corriente entre negocios · período elegido (capital + comisiones)</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {filas.map(({ n, meDebe, leDebo, saldo }) => {
+              {filas.map(({ n, meDebe, leDebo, saldo, saldoHist }) => {
                 const abierto = detalleNegocio === n.id;
-                const movs = comisiones
+                const movs = comisEnRango
                   .filter(c => (c.negocioDuenio === miNegocioId && c.negocioVendedor === n.id) || (c.negocioVendedor === miNegocioId && c.negocioDuenio === n.id))
                   .sort((a, b) => b.fechaNum - a.fechaNum);
                 return (
@@ -217,7 +219,10 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
                       <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{n.nombre}</span>
                       <span style={{ fontSize: 12, color: '#828a94' }}>te debe {fUSD(meDebe)} · le debés {fUSD(leDebo)}</span>
                       <span style={{ fontSize: 15, fontWeight: 600, color: saldo >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
-                        saldo {saldo >= 0 ? 'a tu favor' : 'en contra'}: {fUSD(Math.abs(saldo))}
+                        saldo del período: {saldo >= 0 ? '+' : '−'}{fUSD(Math.abs(saldo))}
+                      </span>
+                      <span style={{ fontSize: 12, color: saldoHist >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
+                        histórico {saldoHist >= 0 ? 'a tu favor' : 'en contra'}: {fUSD(Math.abs(saldoHist))}
                       </span>
                       <button onClick={() => setDetalleNegocio(abierto ? null : n.id)}
                         style={{ padding: '4px 11px', borderRadius: 7, border: '1px solid rgba(231,238,246,0.12)', background: 'rgba(231,238,246,0.03)', color: '#74a8d6', fontSize: 12, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>
