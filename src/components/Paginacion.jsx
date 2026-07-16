@@ -1,7 +1,14 @@
+import { useEffect } from 'react';
+
 // Paginación client-side compartida: los datos ya están en memoria,
 // esto acota el costo de render de listas largas.
 export default function Paginacion({ total, pagina, porPagina, onCambio }) {
   const paginas = Math.max(1, Math.ceil(total / porPagina));
+  // Si la lista se achica (borrar/vender) y la página quedó fuera de rango,
+  // volver a la última página válida — sin esto la pantalla queda vacía sin escape
+  useEffect(() => {
+    if (pagina > paginas) onCambio(paginas);
+  }, [pagina, paginas, onCambio]);
   if (paginas <= 1) return null;
   const btn = (dis) => ({
     padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(231,238,246,0.12)',

@@ -77,9 +77,12 @@ begin
   end loop;
 end $$;
 
+-- Los negocios se leen entre sí (nombres para comisiones y cuenta corriente).
+-- Misma política que migracion-comisiones.sql: re-ejecutar cualquiera de los
+-- dos scripts en cualquier orden deja el mismo estado.
 alter table public.negocios enable row level security;
-create policy "mi_negocio" on public.negocios for select to authenticated
-  using (id = public.negocio_actual());
+create policy "negocios_visibles" on public.negocios for select to authenticated
+  using (true);
 
 -- Stock GLOBAL: lo comparten todos los negocios (decisión de producto)
 alter table public.equipos enable row level security;

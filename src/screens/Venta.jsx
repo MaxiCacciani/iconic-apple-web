@@ -527,9 +527,13 @@ export default function Venta({ equipos, clientes, tc, vendedores, negocios = []
                       {esAjeno(e) && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, padding: '6px 10px', borderRadius: 8, background: 'rgba(217,184,118,0.06)', border: '1px solid rgba(217,184,118,0.25)', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 11.5, color: '#d9b876' }}>Equipo de {nombreDuenio(e)}</span>
+                          {e.esRegalo ? (
+                            <span style={{ fontSize: 11.5, color: '#828a94' }}>· regalo: sin comisión</span>
+                          ) : (<>
                           <span style={{ fontSize: 11.5, color: '#828a94' }}>· comisión US$</span>
                           <input type="text" inputMode="decimal" value={e.comisionVenta ?? ''} onChange={ev => updateComision(e.carritoId, ev.target.value)} placeholder="0"
                             style={{ width: 64, padding: '3px 8px', borderRadius: 6, background: 'rgba(231,238,246,0.05)', border: '1px solid rgba(217,184,118,0.3)', color: '#eef2f7', fontSize: 12.5 }} />
+                          </>)}
                           {e.costo > 0 && <span style={{ fontSize: 11, color: '#6a717b' }}>+ capital {fUSD(e.costo * (e.cantidadVenta || 1))} al dueño</span>}
                         </div>
                       )}

@@ -317,11 +317,14 @@ export async function fetchVentas() {
 }
 
 export async function createVenta(v) {
-  const { data, error } = await supabase
-    .from('ventas')
-    .insert(ventaToRow(v))
-    .select()
-    .single();
+  const row = ventaToRow(v);
+  let { data, error } = await supabase.from('ventas').insert(row).select().single();
+  if (error && /garantia_vence|sin_garantia/.test(error.message || '')) {
+    // Esquema sin migracion-garantia.sql (ej. deploy antes de correr el SQL):
+    // reintentar sin las columnas nuevas para no bloquear las ventas
+    const { garantia_vence, sin_garantia, ...rowViejo } = row;
+    ({ data, error } = await supabase.from('ventas').insert(rowViejo).select().single());
+  }
   if (error) throw error;
   return rowToVenta(data);
 }
@@ -372,8 +375,13 @@ export async function updateReservaEstado(id, estado) {
 }
 
 export async function deleteVenta(id) {
-  await supabase.from('cobros').delete().eq('venta_id', id);
-  await supabase.from('comisiones').delete().eq('venta_id', id);
+  // Si falla el borrado de los hijos, NO borrar la venta: evita cobros y
+  // comisiones huérfanos que inflarían la agenda y la cuenta corriente
+  const { error: eCobros } = await supabase.from('cobros').delete().eq('venta_id', id);
+  if (eCobros) throw eCobros;
+  const { error: eCom } = await supabase.from('comisiones').delete().eq('venta_id', id);
+  // Tolerar solo que la tabla comisiones aún no exista (esquema sin migrar)
+  if (eCom && !/schema cache|does not exist/i.test(eCom.message || '')) throw eCom;
   const { error } = await supabase.from('ventas').delete().eq('id', id);
   if (error) throw error;
 }
@@ -475,15 +483,16 @@ export async function generateCobros(ventaId, ventaData) {
 // ─── NEGOCIOS Y COMISIONES ───────────────────────────────────────────────────
 
 export async function fetchNegocios() {
-  const { data, error } = await supabase.from('negocios').select('id, nombre, comision_pct');
+  const { data, error } = await supabase.from('negocios').select('id, nombre');
   if (error) throw error;
-  return data.map(n => ({ id: n.id, nombre: n.nombre, comisionPct: Number(n.comision_pct ?? 10) }));
+  return data.map(n => ({ id: n.id, nombre: n.nombre }));
 }
 
 export async function createComisiones(rows) {
   if (!rows.length) return;
   const { error } = await supabase.from('comisiones').insert(rows.map(c => ({
     venta_id: c.ventaId || null,
+    fecha: localDateISO(),  // fecha local del negocio, no current_date en UTC
     equipo_label: c.equipo,
     monto: c.monto,
     capital: c.capital || 0,
@@ -498,7 +507,8 @@ export async function fetchComisiones() {
   const { data, error } = await supabase
     .from('comisiones')
     .select('*')
-    .order('fecha', { ascending: false });
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false });
   if (error) throw error;
   return data.map(c => ({
     id: c.id,

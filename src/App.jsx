@@ -265,7 +265,8 @@ export default function App() {
           const capital = Math.round((l.costo || eq?.costo || 0) * (l.cantidad || 1) * 100) / 100;
           const comision = l.comision || 0;
           if (capital > 0 || comision > 0)
-            filas.push({ ventaId: nueva.id, equipo: l.equipo, monto: comision, capital, porcentaje: 0, negocioDuenio: duenio, negocioVendedor: miNegocio });
+            // l.equipo falta en la línea fallback de reservas convertidas — usar la etiqueta de la venta
+            filas.push({ ventaId: nueva.id, equipo: l.equipo || ventaData.equipo || 'Equipo', monto: comision, capital, porcentaje: 0, negocioDuenio: duenio, negocioVendedor: miNegocio });
         }
         if (filas.length > 0) {
           try {
@@ -510,6 +511,7 @@ export default function App() {
             fecha:          v.fechaLabel,
             garantiaUrl:    v.garantiaUrl || null,
             garantiaNombre: v.garantiaNombre || null,
+            garantiaVence:  v.garantiaVence || null,
             sinGarantia: v.sinGarantia || !v.garantiaVence,
             gVence: gPartes
               ? { y: gPartes[0], m: gPartes[1], d: gPartes[2] }

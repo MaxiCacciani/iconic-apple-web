@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getCatDef } from '../data/data.js';
 import { fARS, fUSD } from '../lib/utils.js';
 import { validateCuotas } from '../lib/validation.js';
 import Modal from '../components/Modal.jsx';
@@ -56,6 +57,9 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
       cuotas:      esCuotas ? cuotas : null,
       // La seña ya pagada se registra como parte del anticipo para que la venta cierre
       anticipo:    reserva.sena + (esCuotas ? antNum : 0),
+      // Regla de garantía: solo los equipos la llevan (los accesorios convertidos, no)
+      sinGarantia: equipoRef ? !getCatDef(equipoRef.categoria).enTabPropia : false,
+      garantiaVence: null,
       metodo,
       cuotaMonto:  esCuotas ? cuotaMonto : null,
       primeraCuotaHoy: esCuotas ? primeraCuotaHoy : false,
