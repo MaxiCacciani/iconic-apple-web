@@ -9,7 +9,7 @@ const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', mono
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
 // tc: tipo de cambio del día, recibido desde App para equivalencias en pesos
-function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
+function ConvertirModal({ reserva, equipos, tc, negocios = [], miNegocioId = null, onConfirm, onClose }) {
   // La seña ya está en USD (congelada al TC del día en que se cobró)
   const saldoUSD       = Math.max(0, reserva.usd - reserva.sena);
   const saldoARS       = saldoUSD * tc;
@@ -20,8 +20,13 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
   const [cuotasCustom, setCuotasCustom] = useState(false);
   const [anticipo, setAnticipo]     = useState('');
   const [primeraCuotaHoy, setPrimeraCuotaHoy] = useState(false);
+  const [comision, setComision] = useState('');
 
   const equipoRef = reserva.equipoId ? equipos.find(e => e.id === reserva.equipoId) : null;
+  // Equipo de otro negocio: al convertir corresponde capital + comisión manual al dueño
+  const esAjeno = !!(equipoRef && miNegocioId && equipoRef.negocioId && equipoRef.negocioId !== miNegocioId);
+  const nombreDuenio = esAjeno ? (negocios.find(n => n.id === equipoRef.negocioId)?.nombre || 'otro negocio') : '';
+  const comNum = parseFloat(comision) || 0;
 
   const antNum      = parseFloat(anticipo || '0') || 0;
   const esCuotas    = modalidad === 'cuotas';
@@ -66,6 +71,19 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
       canje:       false,
       canjeEquipo: null,
       canjeValor:  null,
+      // Línea completa: permite registrar capital + comisión manual al dueño
+      lineas: equipoRef ? [{
+        equipoId: equipoRef.id,
+        equipo: equipoLabel,
+        imei: equipoRef.imei || '',
+        categoria: equipoRef.categoria || '',
+        usd: reserva.usd,
+        costo: equipoRef.costo || null,
+        cantidad: 1,
+        esRegalo: false,
+        negocioDuenio: equipoRef.negocioId || null,
+        comision: esAjeno ? comNum : 0,
+      }] : null,
     });
   };
 
@@ -98,6 +116,17 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Comisión al negocio dueño (equipo ajeno) */}
+      {esAjeno && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, padding: '10px 14px', borderRadius: 10, background: 'rgba(217,184,118,0.06)', border: '1px solid rgba(217,184,118,0.25)', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: '#d9b876' }}>Equipo de {nombreDuenio}</span>
+          <span style={{ fontSize: 12, color: '#828a94' }}>· comisión US$</span>
+          <input type="text" inputMode="decimal" value={comision} onChange={e => setComision(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0"
+            style={{ width: 70, padding: '4px 9px', borderRadius: 6, background: 'rgba(231,238,246,0.05)', border: '1px solid rgba(217,184,118,0.3)', color: '#eef2f7', fontSize: 13 }} />
+          {equipoRef.costo > 0 && <span style={{ fontSize: 11.5, color: '#6a717b' }}>+ capital {fUSD(equipoRef.costo)} al dueño</span>}
+        </div>
+      )}
 
       {/* Modalidad del saldo restante */}
       <div style={{ marginBottom: 18 }}>
@@ -188,7 +217,7 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
   );
 }
 
-export default function Reservas({ reservas, equipos, tc, onConvert, onCancelReserva, onDeleteReserva }) {
+export default function Reservas({ reservas, equipos, tc, negocios, miNegocioId, onConvert, onCancelReserva, onDeleteReserva }) {
   const [q, setQ] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('activa');
   const [convertiendo, setConvertiendo] = useState(null);
@@ -222,6 +251,8 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
           reserva={convertiendo}
           equipos={equipos}
           tc={tc}
+          negocios={negocios}
+          miNegocioId={miNegocioId}
           onConfirm={(ventaData) => { onConvert(convertiendo.id, ventaData); setConvertiendo(null); }}
           onClose={() => setConvertiendo(null)}
         />
