@@ -519,9 +519,72 @@ export async function fetchComisiones() {
     porcentaje: Number(c.porcentaje || 0),
     negocioDuenio: c.negocio_duenio,
     negocioVendedor: c.negocio_vendedor,
+    pagado: !!c.pagado,
+    pagadoEn: c.pagado_en || null,
     fechaNum: isoToNum(c.fecha),
     fechaLabel: isoToLabel(c.fecha),
   }));
+}
+
+export async function setComisionPagada(id, pagado) {
+  const { error } = await supabase.from('comisiones')
+    .update({ pagado, pagado_en: pagado ? localDateISO() : null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// ─── MOVIMIENTOS (cuenta corriente manual entre socios) ──────────────────────
+
+const rowToMovimiento = (m) => ({
+  id: m.id,
+  concepto: m.concepto,
+  monto: Number(m.monto),
+  negocioDeudor: m.negocio_deudor,
+  negocioAcreedor: m.negocio_acreedor,
+  creadoPor: m.creado_por,
+  pagado: !!m.pagado,
+  pagadoEn: m.pagado_en || null,
+  fechaNum: isoToNum(m.fecha),
+  fechaLabel: isoToLabel(m.fecha),
+});
+
+export async function fetchMovimientos() {
+  const { data, error } = await supabase
+    .from('movimientos')
+    .select('*')
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) {
+    // Tolerar que la tabla aún no exista (deploy antes que la migración)
+    if (/schema cache|does not exist/i.test(error.message || '')) return [];
+    throw error;
+  }
+  return data.map(rowToMovimiento);
+}
+
+export async function createMovimiento(mov) {
+  const { data, error } = await supabase.from('movimientos').insert({
+    fecha: mov.fecha || localDateISO(),
+    concepto: mov.concepto,
+    monto: mov.monto,
+    negocio_deudor: mov.negocioDeudor,
+    negocio_acreedor: mov.negocioAcreedor,
+    // creado_por lo pone la BD con default negocio_actual()
+  }).select().single();
+  if (error) throw error;
+  return rowToMovimiento(data);
+}
+
+export async function setMovimientoPagado(id, pagado) {
+  const { error } = await supabase.from('movimientos')
+    .update({ pagado, pagado_en: pagado ? localDateISO() : null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteMovimiento(id) {
+  const { error } = await supabase.from('movimientos').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ─── VENDEDORES ──────────────────────────────────────────────────────────────
