@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { fUSD } from '../lib/utils.js';
 import { getCatDef } from '../data/data.js';
+import CuentaCorrienteModal from '../components/CuentaCorrienteModal.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -24,11 +25,11 @@ const dateInput = {
   colorScheme: 'dark', fontFamily: "'Hanken Grotesk', sans-serif",
 };
 
-export default function Ganancias({ ventas, comisiones = [], negocios = [], miNegocioId = null }) {
+export default function Ganancias({ ventas, comisiones = [], negocios = [], miNegocioId = null, movimientos = [], onSetPagado, onSaldarTodo, onCrearMovimiento, onBorrarMovimiento }) {
   const hoy = isoHoy(0);
   const [desde, setDesde] = useState(hoy.slice(0, 8) + '01');
   const [hasta, setHasta] = useState(hoy);
-  const [detalleNegocio, setDetalleNegocio] = useState(null);
+  const [ccNegocio, setCcNegocio] = useState(null);  // contraparte abierta en el modal
 
   const presets = [
     ['Este mes', hoy.slice(0, 8) + '01', hoy],
@@ -191,69 +192,41 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
         </div>
       )}
 
-      {/* Cuenta corriente entre negocios: movimientos del período + saldo histórico */}
+      {/* Cuenta corriente entre negocios: saldo del período + deuda pendiente real */}
       {(() => {
         const sumar = (lista, duenio, vendedor) => lista
           .filter(c => c.negocioDuenio === duenio && c.negocioVendedor === vendedor)
           .reduce((a, b) => a + b.monto + b.capital, 0);
-        const otros = negocios.filter(n => n.id !== miNegocioId);
-        const filas = otros.map(n => {
-          const meDebe = sumar(comisEnRango, miNegocioId, n.id);
-          const leDebo = sumar(comisEnRango, n.id, miNegocioId);
-          const saldoHist = sumar(comisiones, miNegocioId, n.id) - sumar(comisiones, n.id, miNegocioId);
-          return { n, meDebe, leDebo, saldo: meDebe - leDebo, saldoHist };
-        }).filter(f => f.meDebe > 0 || f.leDebo > 0 || f.saldoHist !== 0);
+        const filas = negocios.filter(n => n.id !== miNegocioId).map(n => {
+          const esPar = (a, b) => (a === n.id && b === miNegocioId) || (a === miNegocioId && b === n.id);
+          const comPar = comisiones.filter(c => esPar(c.negocioDuenio, c.negocioVendedor));
+          const movPar = movimientos.filter(m => esPar(m.negocioDeudor, m.negocioAcreedor));
+          const pendiente =
+            comPar.filter(c => !c.pagado).reduce((a, c) => a + (c.negocioDuenio === miNegocioId ? 1 : -1) * (c.monto + c.capital), 0)
+            + movPar.filter(m => !m.pagado).reduce((a, m) => a + (m.negocioAcreedor === miNegocioId ? 1 : -1) * m.monto, 0);
+          const saldoPeriodo = sumar(comisEnRango, miNegocioId, n.id) - sumar(comisEnRango, n.id, miNegocioId);
+          return { n, saldoPeriodo, pendiente, actividad: comPar.length + movPar.length };
+        }).filter(f => f.actividad > 0);
         if (filas.length === 0) return null;
         return (
           <div style={{ padding: '20px 24px', borderRadius: 16, border: '1px solid rgba(231,238,246,0.1)', background: '#181b20', marginBottom: 20 }}>
-            <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Cuenta corriente entre negocios · período elegido (capital + comisiones)</div>
+            <div style={{ ...MONO(10), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>Cuenta corriente entre negocios</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {filas.map(({ n, meDebe, leDebo, saldo, saldoHist }) => {
-                const abierto = detalleNegocio === n.id;
-                const movs = comisEnRango
-                  .filter(c => (c.negocioDuenio === miNegocioId && c.negocioVendedor === n.id) || (c.negocioVendedor === miNegocioId && c.negocioDuenio === n.id))
-                  .sort((a, b) => b.fechaNum - a.fechaNum);
-                return (
-                  <div key={n.id}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{n.nombre}</span>
-                      <span style={{ fontSize: 12, color: '#828a94' }}>te debe {fUSD(meDebe)} · le debés {fUSD(leDebo)}</span>
-                      <span style={{ fontSize: 15, fontWeight: 600, color: saldo >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
-                        saldo del período: {saldo >= 0 ? '+' : '−'}{fUSD(Math.abs(saldo))}
-                      </span>
-                      <span style={{ fontSize: 12, color: saldoHist >= 0 ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
-                        histórico {saldoHist >= 0 ? 'a tu favor' : 'en contra'}: {fUSD(Math.abs(saldoHist))}
-                      </span>
-                      <button onClick={() => setDetalleNegocio(abierto ? null : n.id)}
-                        style={{ padding: '4px 11px', borderRadius: 7, border: '1px solid rgba(231,238,246,0.12)', background: 'rgba(231,238,246,0.03)', color: '#74a8d6', fontSize: 12, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>
-                        {abierto ? 'Ocultar detalle ↑' : `Ver detalle (${movs.length}) ↓`}
-                      </button>
-                    </div>
-                    {abierto && (
-                      <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(231,238,246,0.02)', border: '1px solid rgba(231,238,246,0.07)', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                        {movs.map(c => {
-                          const cobro = c.negocioDuenio === miNegocioId;
-                          const total = c.monto + c.capital;
-                          return (
-                            <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, flexWrap: 'wrap' }}>
-                              <span style={{ ...MONO(11), flexShrink: 0 }}>{c.fechaLabel}</span>
-                              <span style={{ color: '#a6afba', flex: 1, minWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {c.equipo} · {cobro ? `vendido por ${n.nombre}` : `vendiste vos (equipo de ${n.nombre})`}
-                              </span>
-                              <span style={{ color: '#828a94', whiteSpace: 'nowrap' }}>
-                                {c.capital > 0 ? `capital ${fUSD(c.capital)}` : ''}{c.capital > 0 && c.monto > 0 ? ' + ' : ''}{c.monto > 0 ? `com. ${fUSD(c.monto)}` : ''}
-                              </span>
-                              <span style={{ fontWeight: 600, color: cobro ? '#82b39d' : '#d98a76', whiteSpace: 'nowrap' }}>
-                                {cobro ? '+' : '−'}{fUSD(total)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {filas.map(({ n, saldoPeriodo, pendiente }) => (
+                <div key={n.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7' }}>{n.nombre}</span>
+                  <span style={{ fontSize: 12, color: '#828a94', whiteSpace: 'nowrap' }}>
+                    saldo del período: <span style={{ color: saldoPeriodo >= 0 ? '#82b39d' : '#d98a76' }}>{saldoPeriodo >= 0 ? '+' : '−'}{fUSD(Math.abs(saldoPeriodo))}</span>
+                  </span>
+                  <span style={{ fontSize: 14.5, fontWeight: 600, color: pendiente > 0 ? '#82b39d' : pendiente < 0 ? '#d98a76' : '#828a94', whiteSpace: 'nowrap' }}>
+                    {pendiente > 0 ? `te debe ${fUSD(pendiente)}` : pendiente < 0 ? `le debés ${fUSD(-pendiente)}` : 'al día'}
+                  </span>
+                  <button onClick={() => setCcNegocio(n)}
+                    style={{ padding: '5px 13px', borderRadius: 8, border: '1px solid rgba(116,168,214,0.35)', background: 'rgba(116,168,214,0.08)', color: '#74a8d6', fontSize: 12.5, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif", fontWeight: 600 }}>
+                    Ver cuenta corriente →
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         );
@@ -297,6 +270,20 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
           })}
         </div>
       </div>
+
+      {ccNegocio && (
+        <CuentaCorrienteModal
+          negocio={ccNegocio}
+          miNegocioId={miNegocioId}
+          comisiones={comisiones}
+          movimientos={movimientos}
+          onSetPagado={onSetPagado}
+          onSaldarTodo={onSaldarTodo}
+          onCrearMovimiento={onCrearMovimiento}
+          onBorrarMovimiento={onBorrarMovimiento}
+          onClose={() => setCcNegocio(null)}
+        />
+      )}
     </div>
   );
 }
