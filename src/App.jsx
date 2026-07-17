@@ -31,6 +31,7 @@ export default function App() {
   const [vendedores, setVendedores] = useState([]);
   const [negocios, setNegocios] = useState([]);
   const [comisiones, setComisiones] = useState([]);
+  const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [tc, setTc]             = useState(() => {
     const saved = localStorage.getItem('tc_dia');
@@ -68,10 +69,12 @@ export default function App() {
       db.fetchVendedores().catch(() => []),  // tabla nueva: tolerar BD sin migrar
       db.fetchNegocios().catch(() => []),
       db.fetchComisiones().catch(() => []),
+      db.fetchMovimientos().catch(() => []),
     ])
-      .then(([eqs, cls, vts, cbs, rvs, vds, ngs, cms]) => {
+      .then(([eqs, cls, vts, cbs, rvs, vds, ngs, cms, movs]) => {
         setNegocios(ngs);
         setComisiones(cms);
+        setMovimientos(movs);
         setEquipos(eqs);
         setClientes(cls);
         setVentas(vts);
@@ -403,6 +406,58 @@ export default function App() {
     }
   };
 
+  // ─── Cuenta corriente entre socios ─────────────────────────────────────────
+  const refrescarCC = async () => {
+    const [cms, movs] = await Promise.all([
+      db.fetchComisiones().catch(() => []),
+      db.fetchMovimientos().catch(() => []),
+    ]);
+    setComisiones(cms);
+    setMovimientos(movs);
+  };
+
+  const handleSetPagado = async (tipo, id, pagado) => {
+    try {
+      if (tipo === 'comision') await db.setComisionPagada(id, pagado);
+      else await db.setMovimientoPagado(id, pagado);
+      await refrescarCC();
+    } catch (e) {
+      showToast('Error al actualizar el pago: ' + e.message);
+    }
+  };
+
+  const handleSaldarTodo = async (items) => {
+    try {
+      await Promise.all(items.map(i =>
+        i.tipo === 'comision' ? db.setComisionPagada(i.id, true) : db.setMovimientoPagado(i.id, true)
+      ));
+      await refrescarCC();
+      showToast(`${items.length} línea${items.length !== 1 ? 's' : ''} saldada${items.length !== 1 ? 's' : ''} ✓`);
+    } catch (e) {
+      showToast('Error al saldar: ' + e.message);
+    }
+  };
+
+  const handleCrearMovimiento = async (mov) => {
+    try {
+      await db.createMovimiento(mov);
+      setMovimientos(await db.fetchMovimientos());
+      showToast('Movimiento registrado ✓');
+    } catch (e) {
+      showToast('Error al registrar el movimiento: ' + e.message);
+    }
+  };
+
+  const handleBorrarMovimiento = async (id) => {
+    try {
+      await db.deleteMovimiento(id);
+      setMovimientos(prev => prev.filter(m => m.id !== id));
+      showToast('Movimiento eliminado');
+    } catch (e) {
+      showToast('Error al eliminar: ' + e.message);
+    }
+  };
+
   const handleDeleteReserva = async (id, equipoId) => {
     try {
       await db.deleteReserva(id);
@@ -570,7 +625,7 @@ export default function App() {
         {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} tc={tc} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
         {visited.has('clientes') && <div style={{ display: screen === 'clientes' ? 'block' : 'none' }}><Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} /></div>}
         {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} vendedores={vendedores} onSaveVendedor={handleSaveVendedor} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}
-        {visited.has('ganancias') && <div style={{ display: screen === 'ganancias' ? 'block' : 'none' }}><Ganancias ventas={ventas} comisiones={comisiones} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} /></div>}
+        {visited.has('ganancias') && <div style={{ display: screen === 'ganancias' ? 'block' : 'none' }}><Ganancias ventas={ventas} comisiones={comisiones} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} movimientos={movimientos} onSetPagado={handleSetPagado} onSaldarTodo={handleSaldarTodo} onCrearMovimiento={handleCrearMovimiento} onBorrarMovimiento={handleBorrarMovimiento} /></div>}
       </main>
       <Toast msg={toast} />
     </div>
