@@ -32,7 +32,8 @@ Qué hace cada pieza del sistema. Datos exactos, sin rodeos. Para el *por qué*,
 
 ## Reglas de negocio
 
-- **Garantía**: solo aplica a **equipos** (categorías con tab propia); las ventas de solo accesorios se registran sin garantía automáticamente. Para equipos se elige al vender — 3 meses (default), hasta una fecha específica, o "sin garantía". Se guarda en `ventas.garantia_vence` / `sin_garantia` (una por venta; para dos equipos con garantías distintas, registrar dos ventas). Ventas viejas de equipos usan el fallback de 3 meses.
+- **Garantía**: solo aplica a **equipos** (categorías con tab propia); los accesorios se registran sin garantía automáticamente. Es **por equipo**: cada teléfono del carrito elige la suya al vender — 3 meses (default), hasta una fecha específica, o "sin garantía". Se guarda en `venta_items.garantia_vence` / `sin_garantia` (una venta puede tener equipos con garantías distintas). El comprobante PDF (`ventas.garantia_url`) es uno por venta.
+- **Venta atómica (ACID)**: registrar o borrar una venta corre en una sola transacción vía funciones Postgres (`crear_venta` / `borrar_venta`): venta + items + stock + cobros + comisiones, todo o nada. Si algo falla, no queda estado parcial. El cliente calcula los datos (cuotas, comisión, stock) y las funciones solo escriben.
 - **Cuotas**: mínimo 2, máximo 60. Monto = redondeo de (precio − anticipo − canje) / cuotas. **La última cuota ajusta el redondeo** para que la suma dé exacta; el comprobante lo muestra cuando difiere. Monto mínimo por cuota: US$ 1.
 - **Señas**: en USD (congelan su valor al TC del día en que se cobran). No pueden igualar o superar el precio.
 - **Canje**: el equipo entregado entra al stock con `precio = costo = valor de canje`, proveedor "Plan canje". En cuotas, el canje se descuenta del monto a financiar.
@@ -47,7 +48,8 @@ Qué hace cada pieza del sistema. Datos exactos, sin rodeos. Para el *por qué*,
 |-------|--------------|
 | `equipos` | categoria, modelo, cap, color, cond, bat*, imei, usd, costo, proveedor, estado (disponible/reservado/vendido), cantidad, defectos |
 | `clientes` | nombre, dni, tel, loc, desde |
-| `ventas` | fecha, equipo_label, cliente_id, usd, costo, tc, modalidad (contado/cuotas), cuotas, anticipo, cuota_monto, metodo, canje, canje_valor, garantia_url, lineas (JSON), vendedor_numero |
+| `ventas` | fecha, cliente_id, cliente_nombre, tc, modalidad (contado/cuotas), cuotas, anticipo, cuota_monto, metodo, canje, canje_valor, canje_equipo_id, garantia_url, total_usd, total_costo, vendedor_numero |
+| `venta_items` | venta_id (FK), equipo_id (FK), cantidad, precio_usd, costo, es_regalo, comision, negocio_duenio, equipo_label/imei/categoria (foto), garantia_vence, sin_garantia |
 | `cobros` | venta_id, cliente_id, fecha, monto, estado (pendiente/vencida/cobrada), numero_cuota, total_cuotas |
 | `reservas` | equipo_id, cliente_id, equipo_label, sena (USD), usd, estado (activa/convertida/cancelada) |
 | `reclamos` | cliente_id, equipo_label, diagnostico, descripcion, fecha, estado, resolucion |
