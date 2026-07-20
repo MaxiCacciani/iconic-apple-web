@@ -10,6 +10,11 @@ alter table public.ventas add column if not exists canje_equipo_id uuid referenc
 alter table public.ventas add column if not exists total_usd numeric;
 alter table public.ventas add column if not exists total_costo numeric;
 
+-- Las columnas viejas de la cabecera quedan como respaldo pero ya no se escriben
+-- en ventas nuevas: liberar sus NOT NULL para que crear_venta funcione
+alter table public.ventas alter column equipo_label drop not null;
+alter table public.ventas alter column usd drop not null;
+
 -- 2) Items de venta: un renglón por equipo, con FK real y foto al vender
 create table if not exists public.venta_items (
   id uuid primary key default gen_random_uuid(),
