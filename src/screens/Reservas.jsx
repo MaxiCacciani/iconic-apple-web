@@ -45,6 +45,7 @@ function ConvertirModal({ reserva, equipos, tc, negocios = [], miNegocioId = nul
   })();
   const canConfirm = errors.length === 0;
 
+  const iso3meses = () => { const d = new Date(); d.setMonth(d.getMonth() + 3); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const handleConfirm = () => {
     if (!canConfirm) return;
     const equipoLabel = [reserva.equipo, reserva.spec].filter(Boolean).join(' · ');
@@ -62,16 +63,14 @@ function ConvertirModal({ reserva, equipos, tc, negocios = [], miNegocioId = nul
       cuotas:      esCuotas ? cuotas : null,
       // La seña ya pagada se registra como parte del anticipo para que la venta cierre
       anticipo:    reserva.sena + (esCuotas ? antNum : 0),
-      // Regla de garantía: solo los equipos la llevan (los accesorios convertidos, no)
-      sinGarantia: equipoRef ? !getCatDef(equipoRef.categoria).enTabPropia : false,
-      garantiaVence: null,
       metodo,
       cuotaMonto:  esCuotas ? cuotaMonto : null,
       primeraCuotaHoy: esCuotas ? primeraCuotaHoy : false,
       canje:       false,
       canjeEquipo: null,
       canjeValor:  null,
-      // Línea completa: permite registrar capital + comisión manual al dueño
+      // Línea completa: capital + comisión al dueño y garantía por equipo
+      // (equipo convertido → 3 meses por defecto; accesorio → sin garantía)
       lineas: equipoRef ? [{
         equipoId: equipoRef.id,
         equipo: equipoLabel,
@@ -83,6 +82,8 @@ function ConvertirModal({ reserva, equipos, tc, negocios = [], miNegocioId = nul
         esRegalo: false,
         negocioDuenio: equipoRef.negocioId || null,
         comision: esAjeno ? comNum : 0,
+        garantiaVence: getCatDef(equipoRef.categoria).enTabPropia ? iso3meses() : null,
+        sinGarantia: !getCatDef(equipoRef.categoria).enTabPropia,
       }] : null,
     });
   };
