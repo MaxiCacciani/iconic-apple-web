@@ -114,9 +114,14 @@ export default function VentaDetalleModal({ venta, onClose }) {
             value={`${venta.canjeEquipo}${venta.canjeValor ? ' · ' + fUSD(venta.canjeValor) : ''}`}
           />
         )}
-        {(venta.sinGarantia || venta.garantiaVence) && (
-          <Row label="Garantía" value={venta.sinGarantia ? 'Sin garantía' : `Hasta ${venta.garantiaVence.split('-').reverse().join('/')}`} />
-        )}
+        {lineas
+          ? lineas.filter(l => esPhone(l.categoria)).map((l, i) => (
+              <Row key={i} label={`Garantía · ${l.equipo}`}
+                value={l.sinGarantia || !l.garantiaVence ? 'Sin garantía' : `Hasta ${l.garantiaVence.split('-').reverse().join('/')}`} />
+            ))
+          : (venta.sinGarantia || venta.garantiaVence) && (
+            <Row label="Garantía" value={venta.sinGarantia ? 'Sin garantía' : `Hasta ${venta.garantiaVence.split('-').reverse().join('/')}`} />
+          )}
         <Row label="TC del día" value={`$${(tcV).toLocaleString('es-AR')}`} />
       </div>
 

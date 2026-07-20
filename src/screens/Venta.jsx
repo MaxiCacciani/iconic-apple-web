@@ -266,8 +266,6 @@ export default function Venta({ equipos, clientes, tc, vendedores, negocios = []
     setCanjeControles('1');
     setCanjeExtras('');
     setCanjeValor('');
-    setGarantiaTipo('3m');
-    setGarantiaFecha('');
     setPackMsg('');
   };
 

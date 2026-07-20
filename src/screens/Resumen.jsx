@@ -64,11 +64,15 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
   const equiposBatBaja = disp.filter(e => esPhone(e.categoria) && e.bat !== null && e.bat < 80);
   // Garantías vencen en los próximos 30 días
   const en30 = dayNum(30);
-  const garProximas = ventas.filter(v => {
-    if (!v.garantiaVence) return false;
-    const n = Number(v.garantiaVence.replace(/-/g, ''));
-    return n >= todayNum && n <= en30;
-  });
+  // Garantías por vencer: por equipo (cada teléfono tiene la suya)
+  const garProximas = [];
+  for (const v of ventas) {
+    for (const l of (v.lineas || [])) {
+      if (l.sinGarantia || !l.garantiaVence) continue;
+      const n = Number(l.garantiaVence.replace(/-/g, ''));
+      if (n >= todayNum && n <= en30) garProximas.push({ cliente: v.cliente, equipo: l.equipo });
+    }
+  }
 
   const alertas = [
     cobrosVencidos.length > 0 && {
@@ -79,7 +83,7 @@ export default function Resumen({ equipos, ventas, cobros, reservas, tc, onUpdat
     garProximas.length > 0 && {
       dot: '#9b93d6',
       titulo: `${garProximas.length} garantía${garProximas.length > 1 ? 's' : ''} vence${garProximas.length > 1 ? 'n' : ''} en los próximos 30 días`,
-      detalle: garProximas.map(v => v.cliente).join(', '),
+      detalle: [...new Set(garProximas.map(g => g.cliente))].join(', '),
     },
     equiposBatBaja.length > 0 && {
       dot: '#74a8d6',
