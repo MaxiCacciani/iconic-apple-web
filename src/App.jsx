@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase.js';
 import * as db from './lib/db.js';
-import { esPhone } from './data/data.js';
 import { TC as TC_DEFAULT } from './lib/utils.js';
 import Header from './components/Header.jsx';
 import Toast from './components/Toast.jsx';
@@ -212,102 +211,22 @@ export default function App() {
 
   const handleConfirmVenta = async (ventaData) => {
     try {
-      const nueva = await db.createVenta(ventaData);
-
-      // Generar cuotas si corresponde
-      if (ventaData.modalidad === 'cuotas') {
-        try {
-          await db.generateCobros(nueva.id, ventaData);
-          const cbs = await db.fetchCobros();
-          setCobros(cbs);
-        } catch {
-          showToast('Venta registrada, pero hubo un error al generar las cuotas. Revisá Cobros.');
-        }
-      }
-
-      // Actualizar equipos vendidos — best-effort: la venta ya está confirmada
-      const lineasVenta = ventaData.lineas?.length > 0
-        ? ventaData.lineas
-        : ventaData.equipoId ? [{ equipoId: ventaData.equipoId, cantidad: 1 }] : [];
-
-      // Agrupar cantidades por equipo: una venta puede tener el mismo producto
-      // en más de una línea (ej. unidades con precio + unidades de regalo)
-      const qtyPorEquipo = new Map();
-      for (const l of lineasVenta) {
-        if (!l.equipoId) continue;
-        qtyPorEquipo.set(l.equipoId, (qtyPorEquipo.get(l.equipoId) || 0) + (l.cantidad || 1));
-      }
-
-      let stockError = false;
-      for (const [eid, qtySold] of qtyPorEquipo) {
-        const eq = equipos.find(e => e.id === eid);
-        if (!eq) continue;
-        try {
-          if (!esPhone(eq.categoria) && eq.cantidad > qtySold) {
-            // Si venía de una reserva, las unidades restantes vuelven a estar disponibles
-            await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - qtySold, estado: 'disponible' });
-          } else {
-            await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
-          }
-        } catch {
-          stockError = true;
-        }
-      }
-
-      // Actualizar estado local del stock independientemente de los errores de BD
-      setEquipos(prev => prev.map(e => {
-        const qty = qtyPorEquipo.get(e.id);
-        if (!qty) return e;
-        if (!esPhone(e.categoria) && e.cantidad > qty) return { ...e, cantidad: e.cantidad - qty, estado: 'disponible' };
-        return { ...e, estado: 'vendido' };
-      }));
-
-      // Comisiones: equipos vendidos que pertenecen a otro negocio
-      let comisionMsg = '';
       const miNegocio = session?.user?.app_metadata?.negocio_id || null;
-      if (miNegocio) {
-        const filas = [];
-        for (const l of lineasVenta) {
-          if (!l.equipoId) continue;
-          const eq = equipos.find(e => e.id === l.equipoId);
-          const duenio = l.negocioDuenio || eq?.negocioId || null;
-          if (!duenio || duenio === miNegocio) continue;
-          // Al dueño le corresponde el capital (costo) + la comisión manual de la venta
-          const capital = Math.round((l.costo || eq?.costo || 0) * (l.cantidad || 1) * 100) / 100;
-          const comision = l.comision || 0;
-          if (capital > 0 || comision > 0)
-            // l.equipo falta en la línea fallback de reservas convertidas — usar la etiqueta de la venta
-            filas.push({ ventaId: nueva.id, equipo: l.equipo || ventaData.equipo || 'Equipo', monto: comision, capital, porcentaje: 0, negocioDuenio: duenio, negocioVendedor: miNegocio });
-        }
-        if (filas.length > 0) {
-          try {
-            await db.createComisiones(filas);
-            const cms = await db.fetchComisiones();
-            setComisiones(cms);
-            comisionMsg = ` · comisión al negocio dueño (${filas.length} equipo${filas.length > 1 ? 's' : ''})`;
-          } catch {
-            comisionMsg = ' · ⚠ no se pudo registrar la comisión al otro negocio';
-          }
-        }
-      }
-
-      // Agregar equipo de canje al stock
-      if (ventaData.canje && ventaData.canjeEquipoData) {
-        try {
-          const eqCanje = await db.createEquipo(ventaData.canjeEquipoData);
-          setEquipos(prev => [eqCanje, ...prev]);
-        } catch {
-          showToast('Venta registrada. El equipo de canje no se pudo agregar al stock — cargalo manualmente.');
-        }
-      }
-
-      setVentas(prev => [nueva, ...prev]);
-
-      if (stockError) {
-        showToast('Venta registrada. Error al actualizar el stock — revisá el estado de los equipos.');
-      } else {
-        showToast('Venta registrada con éxito' + comisionMsg);
-      }
+      // La venta se crea de forma atómica (función Postgres crear_venta):
+      // venta + items + stock + cobros + comisiones en una sola transacción.
+      await db.createVenta(ventaData, equipos, miNegocio);
+      // Recargar los slices afectados desde la BD
+      const [vts, eqs, cbs, cms] = await Promise.all([
+        db.fetchVentas(),
+        db.fetchEquipos(),
+        db.fetchCobros(),
+        db.fetchComisiones().catch(() => comisiones),
+      ]);
+      setVentas(vts);
+      setEquipos(eqs);
+      setCobros(cbs);
+      setComisiones(cms);
+      showToast('Venta registrada con éxito');
       setTimeout(() => go('ventas'), 300);
     } catch (e) {
       showToast('Error al registrar venta: ' + e.message);
@@ -371,35 +290,14 @@ export default function App() {
   const handleDeleteVenta = async (id) => {
     try {
       const venta = ventas.find(v => v.id === id);
-      await db.deleteVenta(id);
-      setVentas(prev => prev.filter(v => v.id !== id));
-      setCobros(prev => prev.filter(c => c.ventaId !== id));
+      const stockRestores = venta ? db.buildStockRestores(venta, equipos) : [];
+      // Borrado atómico: restaura stock y borra cobros/comisiones/venta en una transacción
+      await db.deleteVenta(id, stockRestores);
+      const [vts, eqs, cbs] = await Promise.all([db.fetchVentas(), db.fetchEquipos(), db.fetchCobros()]);
+      setVentas(vts);
+      setEquipos(eqs);
+      setCobros(cbs);
       setComisiones(prev => prev.filter(c => c.ventaId !== id));
-
-      // Best-effort: restaurar equipos al stock (agrupando líneas por equipo)
-      if (venta?.lineas?.length > 0) {
-        const qtyPorEquipo = new Map();
-        for (const l of venta.lineas) {
-          if (!l.equipoId) continue;
-          qtyPorEquipo.set(l.equipoId, (qtyPorEquipo.get(l.equipoId) || 0) + (l.cantidad || 1));
-        }
-        for (const [eid, qtySold] of qtyPorEquipo) {
-          const eq = equipos.find(e => e.id === eid);
-          if (!eq) continue;
-          try {
-            if (eq.estado === 'vendido') {
-              await db.updateEquipo(eid, { ...eq, estado: 'disponible', cantidad: qtySold });
-              setEquipos(prev => prev.map(e => e.id === eid ? { ...e, estado: 'disponible', cantidad: qtySold } : e));
-            } else if (!esPhone(eq.categoria)) {
-              await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad + qtySold });
-              setEquipos(prev => prev.map(e => e.id === eid ? { ...e, cantidad: e.cantidad + qtySold } : e));
-            }
-          } catch {
-            // best-effort — no bloqueamos el borrado si falla la restauración
-          }
-        }
-      }
-
       showToast('Venta eliminada');
     } catch (e) {
       showToast('Error al eliminar venta: ' + e.message);
