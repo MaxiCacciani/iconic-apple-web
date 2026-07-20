@@ -47,7 +47,7 @@ function DeleteVentaModal({ venta, onConfirm, onClose }) {
         ¿Eliminás la venta de <span style={{ color: '#eef2f7', fontWeight: 600 }}>{venta.equipo}</span> a {venta.cliente}?
       </p>
       <p style={{ fontSize: 13, color: '#d98a76', marginBottom: 24, lineHeight: 1.5 }}>
-        Esta acción no se puede deshacer. Si el equipo está en tu stock, tenés que restaurarlo manualmente desde la pestaña Stock.
+        Esta acción no se puede deshacer. El equipo vuelve automáticamente al stock y se borran sus cuotas y comisiones.
       </p>
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>Cancelar</button>
