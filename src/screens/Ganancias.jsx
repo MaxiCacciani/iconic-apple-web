@@ -74,12 +74,19 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
   const gEquipos = sumaGrupo(c => getCatDef(c.cat).enTabPropia);
   const gAccesorios = sumaGrupo(c => !getCatDef(c.cat).enTabPropia);
 
-  // Comisiones entre negocios en el período (cobradas = mis equipos vendidos
-  // por otro negocio; pagadas = yo vendí equipos ajenos)
+  // Comisiones entre negocios en el período (por fecha de venta) — usado por el
+  // bloque de cuenta corriente para el "saldo del período" (devengado)
   const comisEnRango = comisiones.filter(c => c.fechaNum >= dNum && c.fechaNum <= hNum);
   const nombreNegocio = (id) => negocios.find(n => n.id === id)?.nombre || 'otro negocio';
-  const cobradas = comisEnRango.filter(c => c.negocioDuenio === miNegocioId);
-  const pagadas = comisEnRango.filter(c => c.negocioVendedor === miNegocioId && c.negocioDuenio !== miNegocioId);
+  // Cobradas/pagadas = comisiones efectivamente saldadas (que el dueño marcó
+  // pagadas en la cuenta corriente), ubicadas en el período por su fecha de pago
+  const saldadasEnRango = comisiones.filter(c => {
+    if (!c.pagado || !c.pagadoEn) return false;
+    const n = toNum(c.pagadoEn);
+    return n != null && n >= dNum && n <= hNum;
+  });
+  const cobradas = saldadasEnRango.filter(c => c.negocioDuenio === miNegocioId);
+  const pagadas = saldadasEnRango.filter(c => c.negocioVendedor === miNegocioId && c.negocioDuenio !== miNegocioId);
   const totCobradas = cobradas.reduce((a, b) => a + b.monto, 0);
   const totPagadas = pagadas.reduce((a, b) => a + b.monto, 0);
   const hayComisiones = cobradas.length > 0 || pagadas.length > 0;
@@ -171,7 +178,7 @@ export default function Ganancias({ ventas, comisiones = [], negocios = [], miNe
             <div key={titulo} style={{ ...card, borderColor: `${color}33` }}>
               <div style={{ ...MONO(10, color), letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>{titulo}</div>
               <div style={statVal(color)}>{titulo.includes('cobradas') ? '+' : '−'}{fUSD(total)}</div>
-              <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 6 }}>{lista.length} equipo{lista.length !== 1 ? 's' : ''}</div>
+              <div style={{ fontSize: 12.5, color: '#828a94', marginTop: 6 }}>{lista.length} saldada{lista.length !== 1 ? 's' : ''} en el período</div>
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {lista.slice(0, 4).map(c => (
                   <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#a6afba' }}>
