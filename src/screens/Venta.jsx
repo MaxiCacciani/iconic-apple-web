@@ -237,6 +237,7 @@ export default function Venta({ equipos, clientes, tc, vendedores, negocios = []
   const [canjeControles, setCanjeControles] = useState('1');
   const [canjeExtras, setCanjeExtras] = useState('');
   const [canjeValor, setCanjeValor] = useState('');
+  const [canjeNegocioId, setCanjeNegocioId] = useState(miNegocioId || '');
   const [packs, setPacks] = useState(loadPacks);
   const [packModal, setPackModal] = useState(null);
   const [packMsg, setPackMsg] = useState('');
@@ -266,6 +267,7 @@ export default function Venta({ equipos, clientes, tc, vendedores, negocios = []
     setCanjeControles('1');
     setCanjeExtras('');
     setCanjeValor('');
+    setCanjeNegocioId(miNegocioId || '');
     setPackMsg('');
   };
 
@@ -470,6 +472,7 @@ export default function Venta({ equipos, clientes, tc, vendedores, negocios = []
         defectos: canjeIsConsola ? (canjeExtras || '') : '',
         usd: canjeNum, costo: canjeNum,
         proveedor: 'Plan canje', estado: 'disponible', cantidad: 1,
+        negocio_id: canjeNegocioId || null,
       } : null,
     };
   };
@@ -749,6 +752,11 @@ export default function Venta({ equipos, clientes, tc, vendedores, negocios = []
                 <div><span style={CANJE_LB}>Categoría</span>
                   <select value={canjeCategoria} onChange={e => { setCanjeCategoria(e.target.value); setCanjeModelo(''); setCanjeCap(''); setCanjeColor(''); setCanjeControles('1'); setCanjeExtras(''); }} style={CANJE_SEL}>
                     {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div><span style={CANJE_LB}>Dueño</span>
+                  <select value={canjeNegocioId} onChange={e => setCanjeNegocioId(e.target.value)} style={CANJE_SEL}>
+                    {negocios.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
                   </select>
                 </div>
                 <div><span style={CANJE_LB}>Modelo</span><CanjeCombo value={canjeModelo} onChange={setCanjeModelo} options={getModelos(canjeCategoria)} placeholder="ej. iPhone 13 / PS5" /></div>
