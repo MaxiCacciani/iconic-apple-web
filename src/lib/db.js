@@ -697,21 +697,41 @@ export async function uploadGarantia(ventaId, files) {
       .from('garantias')
       .upload(path, file, { upsert: true, contentType: file.type });
     if (error) throw error;
-    const { data } = supabase.storage.from('garantias').getPublicUrl(path);
-    return { url: data.publicUrl, nombre: file.name };
+    return { path, nombre: file.name };
   }));
   return {
-    url:    results.map(r => r.url).join('|'),
+    // 'url' sigue siendo la clave que se guarda en garantia_url; ahora son paths
+    url:    results.map(r => r.path).join('|'),
     nombre: results.map(r => r.nombre).join('|'),
   };
 }
 
+// Genera signed URLs (1 h) para los paths guardados en garantia_url
+export async function garantiaSignedUrls(garantiaUrl) {
+  const paths = (garantiaUrl || '').split('|').filter(Boolean);
+  if (paths.length === 0) return [];
+  const results = await Promise.all(paths.map(async (path) => {
+    const { data, error } = await supabase.storage.from('garantias').createSignedUrl(path, 3600);
+    return error ? null : { url: data.signedUrl, path };
+  }));
+  return results.filter(Boolean);
+}
+
+// Abre el primer comprobante en una ventana ya abierta (sincrónicamente en el
+// click) para no ser bloqueado por el popup blocker tras el await de la firma.
+export async function abrirGarantiaEnVentana(win, garantiaUrl) {
+  try {
+    const urls = await garantiaSignedUrls(garantiaUrl);
+    if (urls[0] && win) win.location.href = urls[0].url;
+    else if (win) win.close();
+  } catch (e) {
+    if (win) win.close();
+    throw e;
+  }
+}
+
 export async function deleteGarantia(garantiaUrl) {
   if (!garantiaUrl) return;
-  const urls = garantiaUrl.split('|').filter(Boolean);
-  const paths = urls.map(u => {
-    const idx = u.indexOf('/garantias/');
-    return idx >= 0 ? decodeURIComponent(u.slice(idx + '/garantias/'.length)) : null;
-  }).filter(Boolean);
+  const paths = garantiaUrl.split('|').filter(Boolean);
   if (paths.length > 0) await supabase.storage.from('garantias').remove(paths);
 }
