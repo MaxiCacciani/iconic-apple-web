@@ -1,6 +1,7 @@
 import Modal from './Modal.jsx';
 import { esPhone } from '../data/data.js';
 import { fARS, fUSD } from '../lib/utils.js';
+import { abrirGarantiaEnVentana } from '../lib/db.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -130,13 +131,14 @@ export default function VentaDetalleModal({ venta, onClose }) {
         <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid rgba(231,238,246,0.08)' }}>
           <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, color: '#6a717b' }}>Garantía adjunta</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {venta.garantiaUrl.split('|').filter(Boolean).map((url, i) => {
+            {venta.garantiaUrl.split('|').filter(Boolean).map((path, i) => {
               const nombre = venta.garantiaNombre ? (venta.garantiaNombre.split('|')[i] || `Garantía ${i + 1}`) : `Garantía ${i + 1}`;
               return (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: 'rgba(130,179,157,0.08)', border: '1px solid rgba(130,179,157,0.3)', color: '#82b39d', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
+                <button key={i}
+                  onClick={() => { const w = window.open('about:blank', '_blank'); abrirGarantiaEnVentana(w, path).catch(() => {}); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, background: 'rgba(130,179,157,0.08)', border: '1px solid rgba(130,179,157,0.3)', color: '#82b39d', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>
                   ↗ {nombre}
-                </a>
+                </button>
               );
             })}
           </div>
