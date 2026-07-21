@@ -59,7 +59,7 @@ Qué hace cada pieza del sistema. Datos exactos, sin rodeos. Para el *por qué*,
 
 \* `bat`: porcentaje de batería en teléfonos usados; cantidad de controles (0-4) en consolas.
 
-**Storage**: bucket `garantias` — PDF (1, máx. 2 páginas) o JPG (máx. 2) por venta, lectura pública, escritura solo autenticados.
+**Storage**: bucket `garantias` — PDF (1, máx. 2 páginas) o JPG (máx. 2) por venta. **Bucket privado**: los comprobantes se sirven con signed URLs de 1 hora generadas desde la app autenticada. `ventas.garantia_url` guarda los **paths** (no URLs). El rol anónimo no tiene acceso (ni listar ni descargar).
 
 **Seguridad**: RLS activo en todas las tablas — solo el rol `authenticated` puede leer/escribir ([supabase/policies.sql](../supabase/policies.sql)).
 
