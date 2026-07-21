@@ -107,7 +107,15 @@ function rowToVenta(r) {
     metodo: normMetodo(r.metodo),
     cuotaMonto: r.cuota_monto ?? null,
     canje: r.canje || false,
-    canjeEquipo: r.canje_equipo_id || null,
+    canjeEquipo: r.canje_equipo
+    ? [
+      r.canje_equipo.modelo,
+      r.canje_equipo.cap,
+      r.canje_equipo.color
+    ]
+      .filter(Boolean)
+      .join(' ')
+      : null,
     canjeValor: r.canje_valor ?? null,
     garantiaUrl: r.garantia_url || null,
     garantiaNombre: r.garantia_nombre || null,
@@ -199,6 +207,9 @@ function equipoToRow(e) {
     defectos: e.defectos || null,
     costo: e.costo ?? null,
     proveedor: e.proveedor || null,
+    // Solo cuando viene definido: updateEquipo se llama con objetos parciales
+    // (cambios de estado de reservas) y escribir null borraría el dueño
+    ...(e.negocioId ? { negocio_id: e.negocioId } : {}),
   };
 }
 
@@ -386,7 +397,7 @@ export async function updateReclamo(reclamoId, updates) {
 export async function fetchVentas() {
   const { data, error } = await supabase
     .from('ventas')
-    .select('*, venta_items(*)')
+    .select('*, venta_items(*), canje_equipo:equipos!ventas_canje_equipo_id_fkey(id, categoria, modelo, cap, color)')
     .order('fecha', { ascending: false });
   if (error) {
     // Esquema sin migrar (deploy antes del SQL): degradar sin romper la carga
