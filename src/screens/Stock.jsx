@@ -43,9 +43,10 @@ const selectStyle = {
   backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
 };
 
-function FieldSelect({ value, onChange, options }) {
+function FieldSelect({ value, onChange, options, disabled = false }) {
   return (
-    <select value={value} onChange={onChange} style={selectStyle}>
+    <select value={value} onChange={onChange} disabled={disabled}
+      style={{ ...selectStyle, opacity: disabled ? 0.55 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
       {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
     </select>
   );
@@ -98,11 +99,11 @@ function findDuplicateAccesorio(equipos, form) {
   ) || null;
 }
 
-function StockModal({ initial, equipos, onSave, onClose }) {
+function StockModal({ initial, equipos, negocios = [], miNegocioId = null, onSave, onClose }) {
   const isEdit = !!initial;
   const [form, setForm] = useState(initial
     ? { costo: '', proveedor: '', ...initial, bat: initial.bat ?? '', usd: initial.usd ?? '', defectos: initial.defectos ?? '' }
-    : { ...EMPTY_FORM }
+    : { ...EMPTY_FORM, negocioId: miNegocioId || '' }
   );
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const def     = getCatDef(form.categoria);
@@ -307,6 +308,21 @@ function StockModal({ initial, equipos, onSave, onClose }) {
         </div>
       </div>
 
+      <div style={fieldWrap}>
+        <FieldLabel>Dueño</FieldLabel>
+        <FieldSelect
+          value={form.negocioId || ''}
+          onChange={e => set('negocioId', e.target.value)}
+          disabled={isEdit && initial.estado === 'vendido'}
+          options={negocios.map(n => [n.id, n.nombre])}
+        />
+        {isEdit && initial.estado === 'vendido' && (
+          <div style={{ fontSize: 11.5, color: '#6a717b', marginTop: 5, lineHeight: 1.45 }}>
+            No se puede cambiar: el equipo ya se vendió y su comisión quedó registrada con este dueño.
+          </div>
+        )}
+      </div>
+
       {duplicado && (
         <div style={{ marginBottom: 14, padding: '12px 15px', borderRadius: 10, background: 'rgba(116,168,214,0.07)', border: '1px solid rgba(116,168,214,0.3)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <span style={{ fontSize: 15, flexShrink: 0 }}>ℹ</span>
@@ -336,7 +352,8 @@ function StockModal({ initial, equipos, onSave, onClose }) {
   );
 }
 
-export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
+export default function Stock({ equipos, tc, negocios = [], miNegocioId = null, onAdd, onUpdate, onDelete }) {
+  const nombreNegocio = (id) => negocios.find(n => n.id === id)?.nombre || 'otro negocio';
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('todas');
   const [cond, setCond] = useState('todas');
@@ -395,6 +412,8 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
         <StockModal
           initial={modal.mode === 'edit' ? modal.item : null}
           equipos={equipos}
+          negocios={negocios}
+          miNegocioId={miNegocioId}
           onSave={handleSave}
           onClose={() => setModal(null)}
         />
@@ -485,6 +504,9 @@ export default function Stock({ equipos, tc, onAdd, onUpdate, onDelete }) {
                 <div style={{ fontSize: 12, color: '#828a94', marginTop: 2 }}>
                   {[e.cap, e.color].filter(Boolean).join(' · ')}
                 </div>
+                {e.negocioId && miNegocioId && e.negocioId !== miNegocioId && (
+                  <div style={{ fontSize: 11.5, color: '#d9b876', marginTop: 2 }}>de {nombreNegocio(e.negocioId)}</div>
+                )}
               </div>
               {/* Categoría */}
               <div style={{ fontSize: 12.5, color: '#a6afba' }}>{e.categoria}</div>
