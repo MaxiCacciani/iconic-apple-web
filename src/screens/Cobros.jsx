@@ -5,12 +5,16 @@ const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', mono
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
 function buildGarEvents(ventas) {
-  return ventas
-    .filter(v => v.garantiaVence)
-    .map(v => {
-      const [y, m, d] = v.garantiaVence.split('-').map(Number);
-      return { y, m, d, cliente: v.cliente, equipo: v.equipo, vencida: dnum({ y, m, d }) < dnum(TODAY) };
-    });
+  // Un evento de garantía por equipo (cada teléfono con su vencimiento)
+  const events = [];
+  for (const v of ventas) {
+    for (const l of (v.lineas || [])) {
+      if (l.sinGarantia || !l.garantiaVence) continue;
+      const [y, m, d] = l.garantiaVence.split('-').map(Number);
+      events.push({ y, m, d, cliente: v.cliente, equipo: l.equipo, vencida: dnum({ y, m, d }) < dnum(TODAY) });
+    }
+  }
+  return events;
 }
 
 export default function Cobros({ cobros, ventas, onUpdateEstado, onRefresh }) {

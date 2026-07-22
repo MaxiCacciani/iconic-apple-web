@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DIAGNOSTICOS } from '../data/data.js';
+import Paginacion from '../components/Paginacion.jsx';
 import { TODAY, MONTH_ABBR, fUSD, dnum } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
 import { validateDNI, validateTel, isDNIDuplicate } from '../lib/validation.js';
+import { abrirGarantiaEnVentana } from '../lib/db.js';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
@@ -213,6 +215,7 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
 
   const enMora = !!(cli.plan && cli.plan.mora);
   const cliCompras = cli.compras.map(co => {
+    if (co.sinGarantia) return { ...co, garVigente: false, garLabel: 'Sin garantía' };
     const vig = dnum(co.gVence) >= dnum(TODAY);
     const gd = co.gVence;
     const fechaGar = `${String(gd.d).padStart(2,'0')}/${String(gd.m).padStart(2,'0')}/${gd.y}`;
@@ -345,12 +348,12 @@ function ClienteDetail({ cli, clientes, reservas, onBack, onAddReclamo, onUpdate
                       {co.imei && <span style={{ ...MONO(11.5) }}>{co.imei}</span>}
                       <span style={{ fontSize: 12, color: '#a6afba' }}>{co.cond}{co.bat ? ` · batería ${co.bat}%` : co.cond === 'Nuevo' ? ' · sellado' : ''}</span>
                       <div style={{ flex: 1 }} />
-                      {co.garantiaUrl && co.garantiaUrl.split('|').filter(Boolean).map((url, gi) => (
-                        <a key={gi} href={url} target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#74a8d6', padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(116,168,214,0.3)', background: 'rgba(116,168,214,0.06)', textDecoration: 'none' }}>
+                      {co.garantiaUrl && co.garantiaUrl.split('|').filter(Boolean).map((path, gi) => (
+                        <button key={gi}
+                          onClick={e => { e.stopPropagation(); const w = window.open('about:blank', '_blank'); abrirGarantiaEnVentana(w, path).catch(() => {}); }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#74a8d6', padding: '3px 9px', borderRadius: 6, border: '1px solid rgba(116,168,214,0.3)', background: 'rgba(116,168,214,0.06)', cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>
                           ↗ {co.garantiaNombre ? co.garantiaNombre.split('|')[gi] || `Garantía ${gi+1}` : `Garantía ${gi+1}`}
-                        </a>
+                        </button>
                       ))}
                       {co.garVigente
                         ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#82b39d' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#82b39d', display: 'inline-block' }} />{co.garLabel}</span>
@@ -482,6 +485,9 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
   const [view, setView] = useState('list');
   const [clienteId, setClienteId] = useState(null);
   const [search, setSearch] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 20;
+  useEffect(() => { setPagina(1); }, [search]);
 
   const openCliente = (id) => { setClienteId(id); setView('detail'); };
   const goBack = () => setView('list');
@@ -534,7 +540,7 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
       </div>
 
       <div>
-        {clienteRows.map(c => {
+        {clienteRows.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA).map(c => {
           const enMora = !!(c.plan && c.plan.mora);
           const tieneReclamos = (c.reclamos || []).length > 0;
           return (
@@ -562,6 +568,7 @@ export default function Clientes({ clientes, reservas, onAddReclamo, onUpdateRec
       </div>
       </div>
       </div>
+      <Paginacion total={clienteRows.length} pagina={pagina} porPagina={POR_PAGINA} onCambio={setPagina} />
     </div>
   );
 }

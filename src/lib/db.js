@@ -1,5 +1,9 @@
 import { supabase } from './supabase.js';
 import { MONTH_ABBR } from './utils.js';
+import { getCatDef } from '../data/data.js';
+
+// Un "equipo" es teléfono/consola (categoría con tab propia); los accesorios no.
+const esPhone = (cat) => getCatDef(cat).enTabPropia;
 
 // ─── Helpers de fecha ────────────────────────────────────────────────────────
 
@@ -45,6 +49,7 @@ function rowToEquipo(r) {
     defectos: r.defectos || '',
     costo: r.costo ?? null,
     proveedor: r.proveedor || '',
+    negocioId: r.negocio_id || null,
   };
 }
 
@@ -63,24 +68,38 @@ const normMetodo = (m) => {
 };
 
 function rowToVenta(r) {
-  // garantia_vence: usa la columna si existe, si no la calcula como 1 año desde la fecha de venta
-  let garantiaVence = r.garantia_vence || null;
-  if (!garantiaVence && r.fecha) {
-    const [y, m, d] = r.fecha.slice(0, 10).split('-').map(Number);
-    const date = new Date(y, m - 1 + 3, d);
-    garantiaVence = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  }
+  const items = Array.isArray(r.venta_items) ? r.venta_items : [];
+  const lineas = items.map(it => ({
+    equipoId: it.equipo_id || null,
+    equipo: it.equipo_label,
+    imei: it.imei || '',
+    categoria: it.categoria || '',
+    usd: Number(it.precio_usd),
+    costo: it.costo != null ? Number(it.costo) : null,
+    cantidad: it.cantidad || 1,
+    esRegalo: !!it.es_regalo,
+    comision: Number(it.comision || 0),
+    negocioDuenio: it.negocio_duenio || null,
+    garantiaVence: it.garantia_vence ? it.garantia_vence.slice(0, 10) : null,
+    sinGarantia: !!it.sin_garantia,
+  }));
+  // Garantía a nivel venta para vistas de cabecera: el vencimiento más lejano
+  // de los equipos con garantía; sin garantía si ningún equipo la tiene.
+  const conGarantia = lineas.filter(l => !l.sinGarantia && l.garantiaVence);
+  const garantiaVence = conGarantia.length
+    ? conGarantia.map(l => l.garantiaVence).sort().slice(-1)[0]
+    : null;
   return {
     id: r.id,
     fechaLabel: isoToLabel(r.fecha),
     fechaNum: isoToNum(r.fecha),
-    equipo: r.equipo_label,
-    imei: r.imei || '',
-    categoria: r.categoria || '',
+    equipo: lineas[0]?.equipo || r.equipo_label || 'Equipo',
+    imei: lineas[0]?.imei || '',
+    categoria: lineas[0]?.categoria || '',
     cliente: r.cliente_nombre,
     clienteId: r.cliente_id || null,
-    usd: Number(r.usd),
-    costo: r.costo ? Number(r.costo) : null,
+    usd: r.total_usd != null ? Number(r.total_usd) : Number(r.usd || 0),
+    costo: r.total_costo != null ? Number(r.total_costo) : (r.costo ? Number(r.costo) : null),
     tc: r.tc || 1400,
     modalidad: r.modalidad,
     cuotas: r.cuotas ?? null,
@@ -88,12 +107,21 @@ function rowToVenta(r) {
     metodo: normMetodo(r.metodo),
     cuotaMonto: r.cuota_monto ?? null,
     canje: r.canje || false,
-    canjeEquipo: r.canje_equipo || null,
+    canjeEquipo: r.canje_equipo
+    ? [
+      r.canje_equipo.modelo,
+      r.canje_equipo.cap,
+      r.canje_equipo.color
+    ]
+      .filter(Boolean)
+      .join(' ')
+      : null,
     canjeValor: r.canje_valor ?? null,
     garantiaUrl: r.garantia_url || null,
     garantiaNombre: r.garantia_nombre || null,
     garantiaVence,
-    lineas: r.lineas || null,
+    sinGarantia: conGarantia.length === 0,
+    lineas,
     vendedorNumero: r.vendedor_numero ?? null,
   };
 }
@@ -179,33 +207,100 @@ function equipoToRow(e) {
     defectos: e.defectos || null,
     costo: e.costo ?? null,
     proveedor: e.proveedor || null,
+    // Solo cuando viene definido: updateEquipo se llama con objetos parciales
+    // (cambios de estado de reservas) y escribir null borraría el dueño
+    ...(e.negocioId ? { negocio_id: e.negocioId } : {}),
   };
 }
 
-function ventaToRow(v) {
-  return {
-    fecha: localDateISO(),
-    equipo_label: v.equipo,
-    imei: v.imei || null,
-    categoria: v.categoria || null,
-    cliente_nombre: v.cliente,
-    cliente_id: v.clienteId || null,
-    usd: v.usd,
-    costo: v.costo ?? null,
-    tc: v.tc ?? 1400,
-    modalidad: v.modalidad,
-    cuotas: v.cuotas ?? null,
-    anticipo: v.anticipo ?? null,
-    metodo: v.metodo || null,
-    cuota_monto: v.cuotaMonto ?? null,
-    canje: v.canje || false,
-    canje_equipo: v.canjeEquipo || null,
-    canje_valor: v.canjeValor ?? null,
-    garantia_url: v.garantiaUrl || null,
-    garantia_nombre: v.garantiaNombre || null,
-    lineas: v.lineas || null,
-    vendedor_numero: v.vendedorNumero ?? null,
-  };
+// Filas de cobros (sin venta_id — lo completa la función Postgres crear_venta)
+export function buildCobrosRows(v) {
+  if (v.modalidad !== 'cuotas' || !v.cuotas) return [];
+  if (!v.cuotaMonto || v.cuotaMonto < 1) {
+    throw new Error('el monto por cuota es menor a US$ 1 — revisá el plan de pago');
+  }
+  const today = localDateISO();
+  const { primeraCuotaHoy, cuotas, cuotaMonto } = v;
+  const totalFinanciado = Math.max(0,
+    Number(v.usd || 0) - Number(v.anticipo || 0)
+    - (v.canje && v.canjeValor ? Number(v.canjeValor) : 0));
+  const ajusteUltima = Math.round((totalFinanciado - cuotaMonto * (cuotas - 1)) * 100) / 100;
+  const montoUltima = totalFinanciado > 0 ? Math.max(0, ajusteUltima) : cuotaMonto;
+  return Array.from({ length: cuotas }, (_, i) => {
+    const esHoy = primeraCuotaHoy && i === 0;
+    return {
+      cliente_id: v.clienteId ?? null,
+      cliente_nombre: v.cliente,
+      equipo_label: v.equipo,
+      monto: i === cuotas - 1 ? montoUltima : cuotaMonto,
+      fecha: esHoy ? today : addMonthsISO(today, primeraCuotaHoy ? i : i + 1),
+      estado: esHoy ? 'cobrada' : 'pendiente',
+      numero_cuota: i + 1,
+      total_cuotas: cuotas,
+    };
+  });
+}
+
+// Filas de comisiones para equipos ajenos (sin venta_id)
+export function buildComisionesRows(v, miNegocioId) {
+  if (!miNegocioId) return [];
+  const rows = [];
+  for (const l of (v.lineas || [])) {
+    if (!l.equipoId) continue;
+    const duenio = l.negocioDuenio || null;
+    if (!duenio || duenio === miNegocioId) continue;
+    const capital = Math.round((l.costo || 0) * (l.cantidad || 1) * 100) / 100;
+    const comision = l.comision || 0;
+    if (capital > 0 || comision > 0) {
+      rows.push({
+        equipo_label: l.equipo || v.equipo || 'Equipo',
+        monto: comision, capital, porcentaje: 0,
+        negocio_duenio: duenio, negocio_vendedor: miNegocioId,
+        fecha: localDateISO(),
+      });
+    }
+  }
+  return rows;
+}
+
+// Estado final del stock por equipo (valores absolutos)
+export function buildStockUpdates(v, equipos) {
+  const qtyPorEquipo = new Map();
+  for (const l of (v.lineas || [])) {
+    if (!l.equipoId) continue;
+    qtyPorEquipo.set(l.equipoId, (qtyPorEquipo.get(l.equipoId) || 0) + (l.cantidad || 1));
+  }
+  const updates = [];
+  for (const [eid, qty] of qtyPorEquipo) {
+    const eq = equipos.find(e => e.id === eid);
+    if (!eq) continue;
+    if (!esPhone(eq.categoria) && eq.cantidad > qty) {
+      updates.push({ equipo_id: eid, estado: 'disponible', cantidad: eq.cantidad - qty });
+    } else {
+      updates.push({ equipo_id: eid, estado: 'vendido', cantidad: eq.cantidad });
+    }
+  }
+  return updates;
+}
+
+// Stock a restaurar al borrar una venta (valores absolutos)
+export function buildStockRestores(venta, equipos) {
+  const qtyPorEquipo = new Map();
+  for (const l of (venta.lineas || [])) {
+    if (!l.equipoId) continue;
+    qtyPorEquipo.set(l.equipoId, (qtyPorEquipo.get(l.equipoId) || 0) + (l.cantidad || 1));
+  }
+  const restores = [];
+  for (const [eid, qty] of qtyPorEquipo) {
+    const eq = equipos.find(e => e.id === eid);
+    if (!eq) continue;
+    if (esPhone(eq.categoria)) {
+      restores.push({ equipo_id: eid, estado: 'disponible', cantidad: eq.cantidad });
+    } else {
+      restores.push({ equipo_id: eid, estado: 'disponible', cantidad: eq.cantidad + qty });
+    }
+  }
+  return restores;
 }
 
 // ─── EQUIPOS ─────────────────────────────────────────────────────────────────
@@ -302,19 +397,63 @@ export async function updateReclamo(reclamoId, updates) {
 export async function fetchVentas() {
   const { data, error } = await supabase
     .from('ventas')
-    .select('*')
+    .select('*, venta_items(*), canje_equipo:equipos!ventas_canje_equipo_id_fkey(id, categoria, modelo, cap, color)')
     .order('fecha', { ascending: false });
-  if (error) throw error;
+  if (error) {
+    // Esquema sin migrar (deploy antes del SQL): degradar sin romper la carga
+    if (/venta_items|schema cache|does not exist/i.test(error.message || '')) return [];
+    throw error;
+  }
   return data.map(rowToVenta);
 }
 
-export async function createVenta(v) {
-  const { data, error } = await supabase
-    .from('ventas')
-    .insert(ventaToRow(v))
-    .select()
-    .single();
+export async function createVenta(v, equipos = [], miNegocioId = null) {
+  const items = (v.lineas || []).map(l => ({
+    equipo_id: l.equipoId || null,
+    cantidad: l.cantidad || 1,
+    precio_usd: l.usd || 0,
+    costo: l.costo ?? null,
+    es_regalo: !!l.esRegalo,
+    comision: l.comision || 0,
+    negocio_duenio: l.negocioDuenio || null,
+    equipo_label: l.equipo || v.equipo || 'Equipo',
+    imei: l.imei || null,
+    categoria: l.categoria || null,
+    garantia_vence: l.garantiaVence || null,
+    sin_garantia: l.sinGarantia ?? true,
+  }));
+  const totalUsd = items.reduce((a, it) => a + (it.es_regalo ? 0 : it.precio_usd * it.cantidad), 0);
+  const totalCosto = items.reduce((a, it) => a + (it.costo != null ? it.costo * it.cantidad : 0), 0);
+  const payload = {
+    venta: {
+      cliente_id: v.clienteId || null,
+      cliente_nombre: v.cliente,
+      fecha: localDateISO(),
+      tc: v.tc ?? 1400,
+      modalidad: v.modalidad,
+      cuotas: v.cuotas ?? null,
+      anticipo: v.anticipo ?? null,
+      cuota_monto: v.cuotaMonto ?? null,
+      metodo: v.metodo || null,
+      canje: v.canje || false,
+      canje_valor: v.canjeValor ?? null,
+      garantia_url: v.garantiaUrl || null,
+      garantia_nombre: v.garantiaNombre || null,
+      total_usd: Math.round(totalUsd * 100) / 100,
+      total_costo: Math.round(totalCosto * 100) / 100,
+      vendedor_numero: v.vendedorNumero ?? null,
+    },
+    items,
+    cobros: buildCobrosRows(v),
+    comisiones: buildComisionesRows(v, miNegocioId),
+    stock_updates: buildStockUpdates(v, equipos),
+    canje_equipo: v.canjeEquipoData || null,
+  };
+  const { data: newId, error } = await supabase.rpc('crear_venta', { payload });
   if (error) throw error;
+  const { data, error: e2 } = await supabase
+    .from('ventas').select('*, venta_items(*)').eq('id', newId).single();
+  if (e2) throw e2;
   return rowToVenta(data);
 }
 
@@ -363,9 +502,10 @@ export async function updateReservaEstado(id, estado) {
   if (error) throw error;
 }
 
-export async function deleteVenta(id) {
-  await supabase.from('cobros').delete().eq('venta_id', id);
-  const { error } = await supabase.from('ventas').delete().eq('id', id);
+export async function deleteVenta(id, stockRestores = []) {
+  // Borrado atómico: restaura stock y borra cobros/comisiones/venta en una
+  // transacción (los venta_items caen por CASCADE)
+  const { error } = await supabase.rpc('borrar_venta', { p_venta_id: id, p_stock_restores: stockRestores });
   if (error) throw error;
 }
 
@@ -416,51 +556,133 @@ export async function updateCobroEstado(id, estado) {
   if (error) throw error;
 }
 
-export async function generateCobros(ventaId, ventaData) {
-  if (!ventaData.cuotas) return [];
-  if (!ventaData.cuotaMonto || ventaData.cuotaMonto < 1) {
-    // Nunca dejar una venta financiada sin cuotas en silencio
-    throw new Error('el monto por cuota es menor a US$ 1 — revisá el plan de pago');
-  }
-  const today = localDateISO();
-  const { primeraCuotaHoy, cuotas, cuotaMonto } = ventaData;
+// ─── NEGOCIOS Y COMISIONES ───────────────────────────────────────────────────
 
-  // La última cuota ajusta el redondeo para que la suma dé exacto el total financiado
-  const totalFinanciado = Math.max(0,
-    Number(ventaData.usd || 0)
-    - Number(ventaData.anticipo || 0)
-    - (ventaData.canje && ventaData.canjeValor ? Number(ventaData.canjeValor) : 0)
-  );
-  const ajusteUltima = Math.round((totalFinanciado - cuotaMonto * (cuotas - 1)) * 100) / 100;
-  const montoUltima = totalFinanciado > 0 ? Math.max(0, ajusteUltima) : cuotaMonto;
-
-  const makeRow = (i) => {
-    const esHoy = primeraCuotaHoy && i === 0;
-    return {
-      venta_id: ventaId,
-      cliente_id: ventaData.clienteId ?? null,
-      cliente_nombre: ventaData.cliente,
-      equipo_label: ventaData.equipo,
-      monto: i === cuotas - 1 ? montoUltima : cuotaMonto,
-      fecha: esHoy ? today : addMonthsISO(today, primeraCuotaHoy ? i : i + 1),
-      estado: esHoy ? 'cobrada' : 'pendiente',
-    };
-  };
-
-  const rows = Array.from({ length: ventaData.cuotas }, (_, i) => ({
-    ...makeRow(i),
-    numero_cuota: i + 1,
-    total_cuotas: ventaData.cuotas,
-  }));
-
-  let { error } = await supabase.from('cobros').insert(rows);
-  if (error?.message?.includes('numero_cuota') || error?.message?.includes('total_cuotas')) {
-    // columnas opcionales aún no migradas — insertar sin ellas
-    const rowsBase = Array.from({ length: ventaData.cuotas }, (_, i) => makeRow(i));
-    ({ error } = await supabase.from('cobros').insert(rowsBase));
-  }
+export async function fetchNegocios() {
+  const { data, error } = await supabase.from('negocios').select('id, nombre');
   if (error) throw error;
-  return [];
+  return data.map(n => ({ id: n.id, nombre: n.nombre }));
+}
+
+export async function createComisiones(rows) {
+  if (!rows.length) return;
+  const { error } = await supabase.from('comisiones').insert(rows.map(c => ({
+    venta_id: c.ventaId || null,
+    fecha: localDateISO(),  // fecha local del negocio, no current_date en UTC
+    equipo_label: c.equipo,
+    monto: c.monto,
+    capital: c.capital || 0,
+    porcentaje: c.porcentaje || 0,
+    negocio_duenio: c.negocioDuenio,
+    negocio_vendedor: c.negocioVendedor,
+  })));
+  if (error) throw error;
+}
+
+export async function fetchComisiones() {
+  const { data, error } = await supabase
+    .from('comisiones')
+    .select('*')
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data.map(c => ({
+    id: c.id,
+    ventaId: c.venta_id,
+    equipo: c.equipo_label,
+    monto: Number(c.monto),
+    capital: Number(c.capital || 0),
+    porcentaje: Number(c.porcentaje || 0),
+    negocioDuenio: c.negocio_duenio,
+    negocioVendedor: c.negocio_vendedor,
+    pagado: !!c.pagado,
+    pagadoEn: c.pagado_en || null,
+    fechaNum: isoToNum(c.fecha),
+    fechaLabel: isoToLabel(c.fecha),
+  }));
+}
+
+export async function setComisionPagada(id, pagado) {
+  const { error } = await supabase.from('comisiones')
+    .update({ pagado, pagado_en: pagado ? localDateISO() : null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// ─── MOVIMIENTOS (cuenta corriente manual entre socios) ──────────────────────
+
+const rowToMovimiento = (m) => ({
+  id: m.id,
+  concepto: m.concepto,
+  monto: Number(m.monto),
+  negocioDeudor: m.negocio_deudor,
+  negocioAcreedor: m.negocio_acreedor,
+  creadoPor: m.creado_por,
+  pagado: !!m.pagado,
+  pagadoEn: m.pagado_en || null,
+  fechaNum: isoToNum(m.fecha),
+  fechaLabel: isoToLabel(m.fecha),
+});
+
+export async function fetchMovimientos() {
+  const { data, error } = await supabase
+    .from('movimientos')
+    .select('*')
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) {
+    // Tolerar que la tabla aún no exista (deploy antes que la migración)
+    if (/schema cache|does not exist/i.test(error.message || '')) return [];
+    throw error;
+  }
+  return data.map(rowToMovimiento);
+}
+
+export async function createMovimiento(mov) {
+  const { data, error } = await supabase.from('movimientos').insert({
+    fecha: mov.fecha || localDateISO(),
+    concepto: mov.concepto,
+    monto: mov.monto,
+    negocio_deudor: mov.negocioDeudor,
+    negocio_acreedor: mov.negocioAcreedor,
+    // creado_por lo pone la BD con default negocio_actual()
+  }).select().single();
+  if (error) throw error;
+  return rowToMovimiento(data);
+}
+
+export async function setMovimientoPagado(id, pagado) {
+  const { error } = await supabase.from('movimientos')
+    .update({ pagado, pagado_en: pagado ? localDateISO() : null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteMovimiento(id) {
+  const { error } = await supabase.from('movimientos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ─── VENDEDORES ──────────────────────────────────────────────────────────────
+
+export async function fetchVendedores() {
+  const { data, error } = await supabase
+    .from('vendedores')
+    .select('numero, nombre')
+    .order('numero', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export async function saveVendedor(v) {
+  // negocio_id explícito desde el JWT: la tabla es nueva y el default
+  // puede no estar aplicado según la versión de la migración
+  const { data: { session } } = await supabase.auth.getSession();
+  const negocioId = session?.user?.app_metadata?.negocio_id || null;
+  const { error } = await supabase
+    .from('vendedores')
+    .upsert({ negocio_id: negocioId, numero: v.numero, nombre: v.nombre }, { onConflict: 'negocio_id,numero' });
+  if (error) throw error;
 }
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
@@ -475,21 +697,41 @@ export async function uploadGarantia(ventaId, files) {
       .from('garantias')
       .upload(path, file, { upsert: true, contentType: file.type });
     if (error) throw error;
-    const { data } = supabase.storage.from('garantias').getPublicUrl(path);
-    return { url: data.publicUrl, nombre: file.name };
+    return { path, nombre: file.name };
   }));
   return {
-    url:    results.map(r => r.url).join('|'),
+    // 'url' sigue siendo la clave que se guarda en garantia_url; ahora son paths
+    url:    results.map(r => r.path).join('|'),
     nombre: results.map(r => r.nombre).join('|'),
   };
 }
 
+// Genera signed URLs (1 h) para los paths guardados en garantia_url
+export async function garantiaSignedUrls(garantiaUrl) {
+  const paths = (garantiaUrl || '').split('|').filter(Boolean);
+  if (paths.length === 0) return [];
+  const results = await Promise.all(paths.map(async (path) => {
+    const { data, error } = await supabase.storage.from('garantias').createSignedUrl(path, 3600);
+    return error ? null : { url: data.signedUrl, path };
+  }));
+  return results.filter(Boolean);
+}
+
+// Abre el primer comprobante en una ventana ya abierta (sincrónicamente en el
+// click) para no ser bloqueado por el popup blocker tras el await de la firma.
+export async function abrirGarantiaEnVentana(win, garantiaUrl) {
+  try {
+    const urls = await garantiaSignedUrls(garantiaUrl);
+    if (urls[0] && win) win.location.href = urls[0].url;
+    else if (win) win.close();
+  } catch (e) {
+    if (win) win.close();
+    throw e;
+  }
+}
+
 export async function deleteGarantia(garantiaUrl) {
   if (!garantiaUrl) return;
-  const urls = garantiaUrl.split('|').filter(Boolean);
-  const paths = urls.map(u => {
-    const idx = u.indexOf('/garantias/');
-    return idx >= 0 ? decodeURIComponent(u.slice(idx + '/garantias/'.length)) : null;
-  }).filter(Boolean);
+  const paths = garantiaUrl.split('|').filter(Boolean);
   if (paths.length > 0) await supabase.storage.from('garantias').remove(paths);
 }

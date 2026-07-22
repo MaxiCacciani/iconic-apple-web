@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getCatDef } from '../data/data.js';
 import { fARS, fUSD } from '../lib/utils.js';
 import { validateCuotas } from '../lib/validation.js';
 import Modal from '../components/Modal.jsx';
+import Paginacion from '../components/Paginacion.jsx';
 
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
 // tc: tipo de cambio del día, recibido desde App para equivalencias en pesos
-function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
+function ConvertirModal({ reserva, equipos, tc, negocios = [], miNegocioId = null, onConfirm, onClose }) {
   // La seña ya está en USD (congelada al TC del día en que se cobró)
   const saldoUSD       = Math.max(0, reserva.usd - reserva.sena);
   const saldoARS       = saldoUSD * tc;
@@ -18,8 +20,13 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
   const [cuotasCustom, setCuotasCustom] = useState(false);
   const [anticipo, setAnticipo]     = useState('');
   const [primeraCuotaHoy, setPrimeraCuotaHoy] = useState(false);
+  const [comision, setComision] = useState('');
 
   const equipoRef = reserva.equipoId ? equipos.find(e => e.id === reserva.equipoId) : null;
+  // Equipo de otro negocio: al convertir corresponde capital + comisión manual al dueño
+  const esAjeno = !!(equipoRef && miNegocioId && equipoRef.negocioId && equipoRef.negocioId !== miNegocioId);
+  const nombreDuenio = esAjeno ? (negocios.find(n => n.id === equipoRef.negocioId)?.nombre || 'otro negocio') : '';
+  const comNum = parseFloat(comision) || 0;
 
   const antNum      = parseFloat(anticipo || '0') || 0;
   const esCuotas    = modalidad === 'cuotas';
@@ -38,6 +45,7 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
   })();
   const canConfirm = errors.length === 0;
 
+  const iso3meses = () => { const d = new Date(); d.setMonth(d.getMonth() + 3); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const handleConfirm = () => {
     if (!canConfirm) return;
     const equipoLabel = [reserva.equipo, reserva.spec].filter(Boolean).join(' · ');
@@ -61,6 +69,22 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
       canje:       false,
       canjeEquipo: null,
       canjeValor:  null,
+      // Línea completa: capital + comisión al dueño y garantía por equipo
+      // (equipo convertido → 3 meses por defecto; accesorio → sin garantía)
+      lineas: equipoRef ? [{
+        equipoId: equipoRef.id,
+        equipo: equipoLabel,
+        imei: equipoRef.imei || '',
+        categoria: equipoRef.categoria || '',
+        usd: reserva.usd,
+        costo: equipoRef.costo || null,
+        cantidad: 1,
+        esRegalo: false,
+        negocioDuenio: equipoRef.negocioId || null,
+        comision: esAjeno ? comNum : 0,
+        garantiaVence: getCatDef(equipoRef.categoria).enTabPropia ? iso3meses() : null,
+        sinGarantia: !getCatDef(equipoRef.categoria).enTabPropia,
+      }] : null,
     });
   };
 
@@ -93,6 +117,17 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* Comisión al negocio dueño (equipo ajeno) */}
+      {esAjeno && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, padding: '10px 14px', borderRadius: 10, background: 'rgba(217,184,118,0.06)', border: '1px solid rgba(217,184,118,0.25)', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: '#d9b876' }}>Equipo de {nombreDuenio}</span>
+          <span style={{ fontSize: 12, color: '#828a94' }}>· comisión US$</span>
+          <input type="text" inputMode="decimal" value={comision} onChange={e => setComision(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0"
+            style={{ width: 70, padding: '4px 9px', borderRadius: 6, background: 'rgba(231,238,246,0.05)', border: '1px solid rgba(217,184,118,0.3)', color: '#eef2f7', fontSize: 13 }} />
+          {equipoRef.costo > 0 && <span style={{ fontSize: 11.5, color: '#6a717b' }}>+ capital {fUSD(equipoRef.costo)} al dueño</span>}
+        </div>
+      )}
 
       {/* Modalidad del saldo restante */}
       <div style={{ marginBottom: 18 }}>
@@ -183,12 +218,15 @@ function ConvertirModal({ reserva, equipos, tc, onConfirm, onClose }) {
   );
 }
 
-export default function Reservas({ reservas, equipos, tc, onConvert, onCancelReserva, onDeleteReserva }) {
+export default function Reservas({ reservas, equipos, tc, negocios, miNegocioId, onConvert, onCancelReserva, onDeleteReserva }) {
   const [q, setQ] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('activa');
   const [convertiendo, setConvertiendo] = useState(null);
   const [cancelandoId, setCancelandoId] = useState(null);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 20;
+  useEffect(() => { setPagina(1); }, [q, filtroEstado]);
 
   const qLow = q.trim().toLowerCase();
   const filtered = reservas.filter(r => {
@@ -214,6 +252,8 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
           reserva={convertiendo}
           equipos={equipos}
           tc={tc}
+          negocios={negocios}
+          miNegocioId={miNegocioId}
           onConfirm={(ventaData) => { onConvert(convertiendo.id, ventaData); setConvertiendo(null); }}
           onClose={() => setConvertiendo(null)}
         />
@@ -250,7 +290,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-        {filtered.map(r => {
+        {filtered.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA).map(r => {
           const pct = r.usd > 0 ? Math.round(r.sena / r.usd * 100) : 0;
           const equipoRef = r.equipoId ? equipos.find(e => e.id === r.equipoId) : null;
           const esActiva = r.estado === 'activa';
@@ -330,6 +370,7 @@ export default function Reservas({ reservas, equipos, tc, onConvert, onCancelRes
           );
         })}
       </div>
+      <Paginacion total={filtered.length} pagina={pagina} porPagina={POR_PAGINA} onCambio={setPagina} />
     </div>
   );
 }

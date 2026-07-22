@@ -2,7 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { fARS, fUSD } from '../lib/utils.js';
 import Modal from '../components/Modal.jsx';
 import VentaDetalleModal from '../components/VentaDetalleModal.jsx';
-import { uploadGarantia, deleteGarantia } from '../lib/db.js';
+import Paginacion from '../components/Paginacion.jsx';
+import { uploadGarantia, deleteGarantia, garantiaSignedUrls } from '../lib/db.js';
 
 function EditCostoModal({ venta, onSave, onClose }) {
   const [costo, setCosto] = useState(venta.costo ? String(venta.costo) : '');
@@ -46,7 +47,7 @@ function DeleteVentaModal({ venta, onConfirm, onClose }) {
         ¿Eliminás la venta de <span style={{ color: '#eef2f7', fontWeight: 600 }}>{venta.equipo}</span> a {venta.cliente}?
       </p>
       <p style={{ fontSize: 13, color: '#d98a76', marginBottom: 24, lineHeight: 1.5 }}>
-        Esta acción no se puede deshacer. Si el equipo está en tu stock, tenés que restaurarlo manualmente desde la pestaña Stock.
+        Esta acción no se puede deshacer. El equipo vuelve automáticamente al stock y se borran sus cuotas y comisiones.
       </p>
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 11, border: '1px solid rgba(231,238,246,0.12)', background: 'none', color: '#a6afba', fontSize: 14, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif" }}>Cancelar</button>
@@ -59,11 +60,6 @@ function DeleteVentaModal({ venta, onConfirm, onClose }) {
 const MONO = (size, color = '#828a94') => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: size, color });
 const SERIF = (size, color = '#eef2f7') => ({ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: size, color });
 
-const VEND_KEY = 'iconic_vendedores';
-function loadVendedores() {
-  try { return JSON.parse(localStorage.getItem(VEND_KEY) || '[]'); }
-  catch { return []; }
-}
 
 function VendedorModal({ vendedores, onSave, onClose }) {
   const nextNum = vendedores.length > 0 ? Math.max(...vendedores.map(v => v.numero)) + 1 : 1;
@@ -128,21 +124,35 @@ function StatCard({ label, value, sub }) {
 }
 
 function GarantiaModal({ venta, onClose, onDelete }) {
-  const urls  = (venta.garantiaUrl    || '').split('|').filter(Boolean);
+  const paths = (venta.garantiaUrl    || '').split('|').filter(Boolean);
   const names = (venta.garantiaNombre || '').split('|').filter(Boolean);
-  const isPdf = urls.length > 0 && urls[0].toLowerCase().includes('.pdf');
+  const isPdf = paths.length > 0 && paths[0].toLowerCase().endsWith('.pdf');
+  const [signed, setSigned] = useState(null);  // null = cargando; [] = error/sin archivos
+  useEffect(() => {
+    let vivo = true;
+    garantiaSignedUrls(venta.garantiaUrl)
+      .then(r => { if (vivo) setSigned(r.map(x => x.url)); })
+      .catch(() => { if (vivo) setSigned([]); });
+    return () => { vivo = false; };
+  }, [venta.garantiaUrl]);
   const btnBase = { padding: '10px 18px', borderRadius: 10, fontSize: 13, cursor: 'pointer', fontFamily: "'Hanken Grotesk', sans-serif", textDecoration: 'none' };
   return (
     <Modal title={`Garantía · ${venta.equipo}`} onClose={onClose} width={720}>
       <div style={{ fontSize: 12.5, color: '#828a94', marginBottom: 16, fontFamily: "'JetBrains Mono', monospace" }}>
         {names.join(' · ')}
       </div>
-      {isPdf && (
-        <iframe src={urls[0]} title="Garantía PDF" style={{ width: '100%', height: 560, borderRadius: 12, border: '1px solid rgba(231,238,246,0.1)' }} />
+      {signed === null && (
+        <div style={{ padding: '40px 0', textAlign: 'center', color: '#6a717b', fontSize: 13.5 }}>Cargando comprobante…</div>
       )}
-      {!isPdf && urls.map((url, i) => (
+      {signed !== null && signed.length === 0 && (
+        <div style={{ padding: '40px 0', textAlign: 'center', color: '#d98a76', fontSize: 13.5 }}>No se pudo cargar el comprobante.</div>
+      )}
+      {signed !== null && signed.length > 0 && isPdf && (
+        <iframe src={signed[0]} title="Garantía PDF" style={{ width: '100%', height: 560, borderRadius: 12, border: '1px solid rgba(231,238,246,0.1)' }} />
+      )}
+      {signed !== null && signed.length > 0 && !isPdf && signed.map((url, i) => (
         <img key={i} src={url} alt={`Garantía ${i + 1}`}
-          style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(231,238,246,0.1)', maxHeight: 420, objectFit: 'contain', background: '#111', marginBottom: i < urls.length - 1 ? 12 : 0 }}
+          style={{ width: '100%', borderRadius: 12, border: '1px solid rgba(231,238,246,0.1)', maxHeight: 420, objectFit: 'contain', background: '#111', marginBottom: i < signed.length - 1 ? 12 : 0 }}
         />
       ))}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
@@ -151,10 +161,10 @@ function GarantiaModal({ venta, onClose, onDelete }) {
           Eliminar garantía
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
-          {urls.map((url, i) => (
-            <a key={i} href={url} download={names[i] || `garantia${urls.length > 1 ? `_${i + 1}` : ''}`}
+          {(signed || []).map((url, i) => (
+            <a key={i} href={url} download={names[i] || `garantia${(signed || []).length > 1 ? `_${i + 1}` : ''}`}
               style={{ ...btnBase, background: 'rgba(116,168,214,0.12)', border: '1px solid rgba(116,168,214,0.3)', color: '#74a8d6', display: 'inline-block' }}>
-              {urls.length > 1 ? `Descargar (${i + 1})` : 'Descargar'}
+              {(signed || []).length > 1 ? `Descargar (${i + 1})` : 'Descargar'}
             </a>
           ))}
         </div>
@@ -189,26 +199,25 @@ async function validateGarantiaFiles(files) {
   return null;
 }
 
-export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onError }) {
+export default function Ventas({ ventas, tc, vendedores, onSaveVendedor, onUpdateVenta, onDeleteVenta, onError }) {
   const [q, setQ] = useState('');
   const [filtroMod, setFiltroMod] = useState('todas');
   const [filtroMet, setFiltroMet] = useState('todos');
   const [filtroMes, setFiltroMes] = useState('todos');
-  const [verTodas, setVerTodas] = useState(false);
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 20;
+  useEffect(() => { setPagina(1); }, [q, filtroMod, filtroMet, filtroMes]);
   const [uploadingFor, setUploadingFor] = useState(null);
   const [viewingGarantia, setViewingGarantia] = useState(null);
   const [deletingVenta, setDeletingVenta] = useState(null);
   const [editingCosto, setEditingCosto] = useState(null);
   const [detalleVenta, setDetalleVenta] = useState(null);
-  const [vendedores, setVendedores] = useState(loadVendedores);
   const [vendedorModal, setVendedorModal] = useState(false);
   const fileInputRef = useRef(null);
   const uploadingForRef = useRef(null);
 
   const saveVendedor = (v) => {
-    const updated = [...vendedores.filter(x => x.numero !== v.numero), v].sort((a,b) => a.numero - b.numero);
-    setVendedores(updated);
-    localStorage.setItem(VEND_KEY, JSON.stringify(updated));
+    onSaveVendedor(v);
     setVendedorModal(false);
   };
 
@@ -245,7 +254,7 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
   });
 
   const anyFilter = filtroMod !== 'todas' || filtroMet !== 'todos' || filtroMes !== 'todos' || !!qLow;
-  const display = verTodas || anyFilter ? filtered : filtered.slice(0, 10);
+  const display = filtered.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   const totalUSD = ventas.reduce((a, b) => a + b.usd, 0);
   const totalCosto = ventas.filter(v => v.costo).reduce((a, b) => a + (b.costo || 0), 0);
@@ -387,21 +396,10 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
       </div>
 
       {/* Result count */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <div style={{ marginBottom: 10 }}>
         <span style={{ ...MONO(11), color: '#6a717b' }}>
           Mostrando {display.length} de {filtered.length} registros
-          {!verTodas && !anyFilter && filtered.length > 10 && ' (últimos 10)'}
         </span>
-        {filtered.length > 10 && !verTodas && (
-          <button onClick={() => setVerTodas(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#74a8d6' }}>
-            Ver todas las {filtered.length} ventas →
-          </button>
-        )}
-        {verTodas && filtered.length > 10 && (
-          <button onClick={() => setVerTodas(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#74a8d6' }}>
-            Mostrar solo últimas 10 ↑
-          </button>
-        )}
       </div>
 
       {/* Table (scrollable en móvil) */}
@@ -547,6 +545,8 @@ export default function Ventas({ ventas, tc, onUpdateVenta, onDeleteVenta, onErr
 
       </div>
       </div>
+
+      <Paginacion total={filtered.length} pagina={pagina} porPagina={POR_PAGINA} onCambio={setPagina} />
 
       {display.length > 0 && (
         <div style={{ ...MONO(11), marginTop: 14, textAlign: 'center', color: '#4a5058' }}>

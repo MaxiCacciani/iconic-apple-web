@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase.js';
 import * as db from './lib/db.js';
-import { esPhone } from './data/data.js';
 import { TC as TC_DEFAULT } from './lib/utils.js';
 import Header from './components/Header.jsx';
 import Toast from './components/Toast.jsx';
@@ -14,6 +13,7 @@ import Cobros from './screens/Cobros.jsx';
 import Reservas from './screens/Reservas.jsx';
 import Clientes from './screens/Clientes.jsx';
 import Ventas from './screens/Ventas.jsx';
+import Ganancias from './screens/Ganancias.jsx';
 
 export default function App() {
   const navigate = useNavigate();
@@ -27,6 +27,10 @@ export default function App() {
   const [ventas, setVentas]     = useState([]);
   const [cobros, setCobros]     = useState([]);
   const [reservas, setReservas] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
+  const [negocios, setNegocios] = useState([]);
+  const [comisiones, setComisiones] = useState([]);
+  const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [tc, setTc]             = useState(() => {
     const saved = localStorage.getItem('tc_dia');
@@ -61,15 +65,31 @@ export default function App() {
       db.fetchVentas(),
       db.fetchCobros(),
       db.fetchReservas(),
+      db.fetchVendedores().catch(() => []),  // tabla nueva: tolerar BD sin migrar
+      db.fetchNegocios().catch(() => []),
+      db.fetchComisiones().catch(() => []),
+      db.fetchMovimientos().catch(() => []),
     ])
-      .then(([eqs, cls, vts, cbs, rvs]) => {
+      .then(([eqs, cls, vts, cbs, rvs, vds, ngs, cms, movs]) => {
+        setNegocios(ngs);
+        setComisiones(cms);
+        setMovimientos(movs);
         setEquipos(eqs);
         setClientes(cls);
         setVentas(vts);
         setCobros(cbs);
         setReservas(rvs);
+        setVendedores(vds);
       })
-      .catch(err => showToast('Error al cargar datos: ' + err.message))
+      .catch(err => {
+        // Sesión vieja inválida (token vencido/revocado): volver al login
+        // en silencio en vez de mostrar un error que se resuelve solo
+        if (err?.status === 401 || /JWT|token|Unauthorized/i.test(err?.message || '')) {
+          supabase.auth.signOut();
+          return;
+        }
+        showToast('Error al cargar datos: ' + err.message);
+      })
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -191,73 +211,22 @@ export default function App() {
 
   const handleConfirmVenta = async (ventaData) => {
     try {
-      const nueva = await db.createVenta(ventaData);
-
-      // Generar cuotas si corresponde
-      if (ventaData.modalidad === 'cuotas') {
-        try {
-          await db.generateCobros(nueva.id, ventaData);
-          const cbs = await db.fetchCobros();
-          setCobros(cbs);
-        } catch {
-          showToast('Venta registrada, pero hubo un error al generar las cuotas. Revisá Cobros.');
-        }
-      }
-
-      // Actualizar equipos vendidos — best-effort: la venta ya está confirmada
-      const lineasVenta = ventaData.lineas?.length > 0
-        ? ventaData.lineas
-        : ventaData.equipoId ? [{ equipoId: ventaData.equipoId, cantidad: 1 }] : [];
-
-      // Agrupar cantidades por equipo: una venta puede tener el mismo producto
-      // en más de una línea (ej. unidades con precio + unidades de regalo)
-      const qtyPorEquipo = new Map();
-      for (const l of lineasVenta) {
-        if (!l.equipoId) continue;
-        qtyPorEquipo.set(l.equipoId, (qtyPorEquipo.get(l.equipoId) || 0) + (l.cantidad || 1));
-      }
-
-      let stockError = false;
-      for (const [eid, qtySold] of qtyPorEquipo) {
-        const eq = equipos.find(e => e.id === eid);
-        if (!eq) continue;
-        try {
-          if (!esPhone(eq.categoria) && eq.cantidad > qtySold) {
-            // Si venía de una reserva, las unidades restantes vuelven a estar disponibles
-            await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad - qtySold, estado: 'disponible' });
-          } else {
-            await db.updateEquipo(eid, { ...eq, estado: 'vendido' });
-          }
-        } catch {
-          stockError = true;
-        }
-      }
-
-      // Actualizar estado local del stock independientemente de los errores de BD
-      setEquipos(prev => prev.map(e => {
-        const qty = qtyPorEquipo.get(e.id);
-        if (!qty) return e;
-        if (!esPhone(e.categoria) && e.cantidad > qty) return { ...e, cantidad: e.cantidad - qty, estado: 'disponible' };
-        return { ...e, estado: 'vendido' };
-      }));
-
-      // Agregar equipo de canje al stock
-      if (ventaData.canje && ventaData.canjeEquipoData) {
-        try {
-          const eqCanje = await db.createEquipo(ventaData.canjeEquipoData);
-          setEquipos(prev => [eqCanje, ...prev]);
-        } catch {
-          showToast('Venta registrada. El equipo de canje no se pudo agregar al stock — cargalo manualmente.');
-        }
-      }
-
-      setVentas(prev => [nueva, ...prev]);
-
-      if (stockError) {
-        showToast('Venta registrada. Error al actualizar el stock — revisá el estado de los equipos.');
-      } else {
-        showToast('Venta registrada con éxito');
-      }
+      const miNegocio = session?.user?.app_metadata?.negocio_id || null;
+      // La venta se crea de forma atómica (función Postgres crear_venta):
+      // venta + items + stock + cobros + comisiones en una sola transacción.
+      await db.createVenta(ventaData, equipos, miNegocio);
+      // Recargar los slices afectados desde la BD
+      const [vts, eqs, cbs, cms] = await Promise.all([
+        db.fetchVentas(),
+        db.fetchEquipos(),
+        db.fetchCobros(),
+        db.fetchComisiones().catch(() => comisiones),
+      ]);
+      setVentas(vts);
+      setEquipos(eqs);
+      setCobros(cbs);
+      setComisiones(cms);
+      showToast('Venta registrada con éxito');
       setTimeout(() => go('ventas'), 300);
     } catch (e) {
       showToast('Error al registrar venta: ' + e.message);
@@ -321,37 +290,69 @@ export default function App() {
   const handleDeleteVenta = async (id) => {
     try {
       const venta = ventas.find(v => v.id === id);
-      await db.deleteVenta(id);
-      setVentas(prev => prev.filter(v => v.id !== id));
-      setCobros(prev => prev.filter(c => c.ventaId !== id));
-
-      // Best-effort: restaurar equipos al stock (agrupando líneas por equipo)
-      if (venta?.lineas?.length > 0) {
-        const qtyPorEquipo = new Map();
-        for (const l of venta.lineas) {
-          if (!l.equipoId) continue;
-          qtyPorEquipo.set(l.equipoId, (qtyPorEquipo.get(l.equipoId) || 0) + (l.cantidad || 1));
-        }
-        for (const [eid, qtySold] of qtyPorEquipo) {
-          const eq = equipos.find(e => e.id === eid);
-          if (!eq) continue;
-          try {
-            if (eq.estado === 'vendido') {
-              await db.updateEquipo(eid, { ...eq, estado: 'disponible', cantidad: qtySold });
-              setEquipos(prev => prev.map(e => e.id === eid ? { ...e, estado: 'disponible', cantidad: qtySold } : e));
-            } else if (!esPhone(eq.categoria)) {
-              await db.updateEquipo(eid, { ...eq, cantidad: eq.cantidad + qtySold });
-              setEquipos(prev => prev.map(e => e.id === eid ? { ...e, cantidad: e.cantidad + qtySold } : e));
-            }
-          } catch {
-            // best-effort — no bloqueamos el borrado si falla la restauración
-          }
-        }
-      }
-
+      const stockRestores = venta ? db.buildStockRestores(venta, equipos) : [];
+      // Borrado atómico: restaura stock y borra cobros/comisiones/venta en una transacción
+      await db.deleteVenta(id, stockRestores);
+      const [vts, eqs, cbs] = await Promise.all([db.fetchVentas(), db.fetchEquipos(), db.fetchCobros()]);
+      setVentas(vts);
+      setEquipos(eqs);
+      setCobros(cbs);
+      setComisiones(prev => prev.filter(c => c.ventaId !== id));
       showToast('Venta eliminada');
     } catch (e) {
       showToast('Error al eliminar venta: ' + e.message);
+    }
+  };
+
+  // ─── Cuenta corriente entre socios ─────────────────────────────────────────
+  const refrescarCC = async () => {
+    const [cms, movs] = await Promise.all([
+      db.fetchComisiones().catch(() => []),
+      db.fetchMovimientos().catch(() => []),
+    ]);
+    setComisiones(cms);
+    setMovimientos(movs);
+  };
+
+  const handleSetPagado = async (tipo, id, pagado) => {
+    try {
+      if (tipo === 'comision') await db.setComisionPagada(id, pagado);
+      else await db.setMovimientoPagado(id, pagado);
+      await refrescarCC();
+    } catch (e) {
+      showToast('Error al actualizar el pago: ' + e.message);
+    }
+  };
+
+  const handleSaldarTodo = async (items) => {
+    try {
+      await Promise.all(items.map(i =>
+        i.tipo === 'comision' ? db.setComisionPagada(i.id, true) : db.setMovimientoPagado(i.id, true)
+      ));
+      await refrescarCC();
+      showToast(`${items.length} línea${items.length !== 1 ? 's' : ''} saldada${items.length !== 1 ? 's' : ''} ✓`);
+    } catch (e) {
+      showToast('Error al saldar: ' + e.message);
+    }
+  };
+
+  const handleCrearMovimiento = async (mov) => {
+    try {
+      await db.createMovimiento(mov);
+      setMovimientos(await db.fetchMovimientos());
+      showToast('Movimiento registrado ✓');
+    } catch (e) {
+      showToast('Error al registrar el movimiento: ' + e.message);
+    }
+  };
+
+  const handleBorrarMovimiento = async (id) => {
+    try {
+      await db.deleteMovimiento(id);
+      setMovimientos(prev => prev.filter(m => m.id !== id));
+      showToast('Movimiento eliminado');
+    } catch (e) {
+      showToast('Error al eliminar: ' + e.message);
     }
   };
 
@@ -390,6 +391,16 @@ export default function App() {
       setCobros(prev => prev.map(c => c.id === id ? { ...c, estado } : c));
     } catch (e) {
       showToast('Error al actualizar cobro: ' + e.message);
+    }
+  };
+
+  const handleSaveVendedor = async (v) => {
+    try {
+      await db.saveVendedor(v);
+      setVendedores(prev => [...prev.filter(x => x.numero !== v.numero), v].sort((a, b) => a.numero - b.numero));
+      showToast('Vendedor guardado');
+    } catch (e) {
+      showToast('Error al guardar vendedor: ' + e.message);
     }
   };
 
@@ -461,6 +472,8 @@ export default function App() {
             fecha:          v.fechaLabel,
             garantiaUrl:    v.garantiaUrl || null,
             garantiaNombre: v.garantiaNombre || null,
+            garantiaVence:  v.garantiaVence || null,
+            sinGarantia: v.sinGarantia || !v.garantiaVence,
             gVence: gPartes
               ? { y: gPartes[0], m: gPartes[1], d: gPartes[2] }
               : { y: 2099, m: 1, d: 1 },
@@ -504,12 +517,13 @@ export default function App() {
       <Header screen={screen} onNav={go} onLogout={handleLogout} />
       <main className="main-pad">
         {visited.has('resumen')  && <div style={{ display: screen === 'resumen'  ? 'block' : 'none' }}><Resumen equipos={equipos} ventas={ventas} cobros={cobros} reservas={reservas} tc={tc} onUpdateTC={updateTC} onGoCobros={() => go('cobros')} /></div>}
-        {visited.has('stock')    && <div style={{ display: screen === 'stock'    ? 'block' : 'none' }}><Stock equipos={equipos} tc={tc} onAdd={addEquipo} onUpdate={updateEquipo} onDelete={deleteEquipo} /></div>}
-        {visited.has('venta')    && <div style={{ display: screen === 'venta'    ? 'block' : 'none' }}><Venta equipos={equipos} clientes={clientesConCompras} tc={tc} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} /></div>}
+        {visited.has('stock')    && <div style={{ display: screen === 'stock'    ? 'block' : 'none' }}><Stock equipos={equipos} tc={tc} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} onAdd={addEquipo} onUpdate={updateEquipo} onDelete={deleteEquipo} /></div>}
+        {visited.has('venta')    && <div style={{ display: screen === 'venta'    ? 'block' : 'none' }}><Venta equipos={equipos} clientes={clientesConCompras} tc={tc} vendedores={vendedores} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} onConfirm={handleConfirmVenta} onConfirmApartado={handleConfirmApartado} onAddCliente={addCliente} /></div>}
         {visited.has('cobros')   && <div style={{ display: screen === 'cobros'   ? 'block' : 'none' }}><Cobros cobros={cobros} ventas={ventas} onUpdateEstado={updateCobroEstado} onRefresh={() => db.fetchCobros().then(setCobros).catch(() => {})} /></div>}
-        {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} tc={tc} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
+        {visited.has('reservas') && <div style={{ display: screen === 'reservas' ? 'block' : 'none' }}><Reservas reservas={reservas} equipos={equipos} tc={tc} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} onConvert={convertReserva} onCancelReserva={handleCancelReserva} onDeleteReserva={handleDeleteReserva} /></div>}
         {visited.has('clientes') && <div style={{ display: screen === 'clientes' ? 'block' : 'none' }}><Clientes clientes={clientesConCompras} reservas={reservas} onAddReclamo={addReclamo} onUpdateReclamo={updateReclamo} onEditCliente={editCliente} onDeleteCliente={deleteCliente} /></div>}
-        {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}
+        {visited.has('ventas')   && <div style={{ display: screen === 'ventas'   ? 'block' : 'none' }}><Ventas ventas={ventas} tc={tc} vendedores={vendedores} onSaveVendedor={handleSaveVendedor} onUpdateVenta={updateVenta} onDeleteVenta={handleDeleteVenta} onError={showToast} /></div>}
+        {visited.has('ganancias') && <div style={{ display: screen === 'ganancias' ? 'block' : 'none' }}><Ganancias ventas={ventas} comisiones={comisiones} negocios={negocios} miNegocioId={session?.user?.app_metadata?.negocio_id || null} movimientos={movimientos} onSetPagado={handleSetPagado} onSaldarTodo={handleSaldarTodo} onCrearMovimiento={handleCrearMovimiento} onBorrarMovimiento={handleBorrarMovimiento} /></div>}
       </main>
       <Toast msg={toast} />
     </div>

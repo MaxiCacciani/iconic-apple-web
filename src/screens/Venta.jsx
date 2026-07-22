@@ -182,11 +182,7 @@ function CanjeCombo({ value, onChange, options, placeholder }) {
 
 // ─── VendedorStep ────────────────────────────────────────────────────────────
 
-function VendedorStep({ vendedorNumero, onChangeNumero }) {
-  const vendedores = (() => {
-    try { return JSON.parse(localStorage.getItem('iconic_vendedores') || '[]'); }
-    catch { return []; }
-  })();
+function VendedorStep({ vendedores, vendedorNumero, onChangeNumero }) {
   const num = parseInt(vendedorNumero, 10);
   const vendedor = vendedores.find(v => v.numero === num);
 
@@ -216,7 +212,7 @@ function VendedorStep({ vendedorNumero, onChangeNumero }) {
 
 // ─── Venta (main) ────────────────────────────────────────────────────────────
 
-export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApartado, onAddCliente }) {
+export default function Venta({ equipos, clientes, tc, vendedores, negocios = [], miNegocioId = null, onConfirm, onConfirmApartado, onAddCliente }) {
   const [carrito, setCarrito] = useState([]);
   const [modalidad, setModalidad] = useState('contado');
   const [cuotas, setCuotas] = useState(6);
@@ -241,16 +237,11 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const [canjeControles, setCanjeControles] = useState('1');
   const [canjeExtras, setCanjeExtras] = useState('');
   const [canjeValor, setCanjeValor] = useState('');
+  const [canjeNegocioId, setCanjeNegocioId] = useState(miNegocioId || '');
   const [packs, setPacks] = useState(loadPacks);
   const [packModal, setPackModal] = useState(null);
   const [packMsg, setPackMsg] = useState('');
-  const [vendedorNumero, setVendedorNumero] = useState(() => {
-
-    try {
-      const vs = JSON.parse(localStorage.getItem('iconic_vendedores') || '[]');
-      return vs.length > 0 ? String(vs[vs.length - 1].numero) : '';
-    } catch { return ''; }
-  });
+  const [vendedorNumero, setVendedorNumero] = useState('');
 
   const resetForm = () => {
     setCarrito([]);
@@ -276,6 +267,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     setCanjeControles('1');
     setCanjeExtras('');
     setCanjeValor('');
+    setCanjeNegocioId(miNegocioId || '');
     setPackMsg('');
   };
 
@@ -309,6 +301,15 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   const toggleRegalo = (carritoId) => {
     setCarrito(prev => prev.map(c => c.carritoId === carritoId ? { ...c, esRegalo: !c.esRegalo } : c));
   };
+  const updateComision = (carritoId, val) => {
+    setCarrito(prev => prev.map(c => c.carritoId === carritoId ? { ...c, comisionVenta: val.replace(/[^0-9.]/g, '') } : c));
+  };
+  // Garantía por equipo (cada teléfono del carrito elige la suya)
+  const iso3meses = () => { const d = new Date(); d.setMonth(d.getMonth() + 3); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const updateGarantia = (carritoId, tipo, fecha) =>
+    setCarrito(prev => prev.map(c => c.carritoId === carritoId ? { ...c, garantiaTipo: tipo, garantiaFecha: fecha ?? c.garantiaFecha } : c));
+  const esAjeno = (item) => !!(miNegocioId && item.negocioId && item.negocioId !== miNegocioId);
+  const nombreDuenio = (item) => negocios.find(n => n.id === item.negocioId)?.nombre || 'otro negocio';
   const updatePrecio = (carritoId, val) => {
     const num = parseFloat(val);
     setCarrito(prev => prev.map(c => c.carritoId === carritoId ? { ...c, usdVenta: isNaN(num) || val === '' ? null : Math.max(0, num) } : c));
@@ -377,6 +378,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
   ].filter(Boolean).join(' · ');
   const puedeApartado = carrito.length <= 1;
   const hayRegalos = carrito.some(c => c.esRegalo);
+  // Solo los equipos (categorías con tab propia) llevan garantía; los accesorios no
+  const hayEquipos = carrito.some(c => getCatDef(c.categoria).enTabPropia);
 
   const ventaErrors = (() => {
     const e = [];
@@ -399,6 +402,15 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
         const eb = validateBat(canjeBat); if (eb) e.push(`Batería canje: ${eb}`);
       }
     }
+    for (const c of carrito) {
+      if (esPhone(c.categoria) && c.garantiaTipo === 'fecha') {
+        if (!c.garantiaFecha) { e.push(`Elegí hasta qué fecha cubre la garantía de ${c.modelo || 'un equipo'}.`); continue; }
+        const [gy, gm, gd] = c.garantiaFecha.split('-').map(Number);
+        const h = new Date();
+        if (gy * 10000 + gm * 100 + gd <= h.getFullYear() * 10000 + (h.getMonth() + 1) * 100 + h.getDate())
+          e.push(`La garantía de ${c.modelo || 'un equipo'} debe ser una fecha futura.`);
+      }
+    }
     return e;
   })();
 
@@ -413,18 +425,29 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
     setNuevoClienteModal(false);
   };
 
-  const buildLineas = () => carrito.map(e => ({
-    equipoId: e.id,
-    equipo: [e.modelo, e.cap, e.color].filter(Boolean).join(' · '),
-    imei: e.imei || '',
-    categoria: e.categoria,
-    usd: e.esRegalo ? 0 : effPrecio(e),
-    costo: e.costo || null,
-    cantidad: e.cantidadVenta || 1,
-    esRegalo: e.esRegalo || false,
-    garantiaUrl: e.garantiaUrl || null,
-    garantiaNombre: e.garantiaNombre || null,
-  }));
+  const buildLineas = () => carrito.map(e => {
+    const esEquipo = esPhone(e.categoria);
+    const tipo = e.garantiaTipo || '3m';
+    const sinGarantia = !esEquipo || tipo === 'sin';
+    const garantiaVence = !esEquipo ? null
+      : tipo === 'fecha' ? (e.garantiaFecha || null)
+      : tipo === '3m' ? iso3meses()
+      : null;
+    return {
+      equipoId: e.id,
+      equipo: [e.modelo, e.cap, e.color].filter(Boolean).join(' · '),
+      imei: e.imei || '',
+      categoria: e.categoria,
+      usd: e.esRegalo ? 0 : effPrecio(e),
+      costo: e.costo || null,
+      cantidad: e.cantidadVenta || 1,
+      esRegalo: e.esRegalo || false,
+      negocioDuenio: e.negocioId || null,
+      comision: esAjeno(e) && !e.esRegalo ? (parseFloat(e.comisionVenta) || 0) : 0,
+      garantiaVence,
+      sinGarantia,
+    };
+  });
 
   const buildVentaData = () => {
     const lineas = buildLineas();
@@ -449,6 +472,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
         defectos: canjeIsConsola ? (canjeExtras || '') : '',
         usd: canjeNum, costo: canjeNum,
         proveedor: 'Plan canje', estado: 'disponible', cantidad: 1,
+        negocio_id: canjeNegocioId || null,
       } : null,
     };
   };
@@ -493,7 +517,8 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {carrito.map(e => {
                     return (
-                      <div key={e.carritoId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div key={e.carritoId}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <span style={{ fontSize: 13.5, fontWeight: 500, color: '#eef2f7' }}>
                             {e.modelo}{e.cap ? ` · ${e.cap}` : ''}{e.color ? ` · ${e.color}` : ''}
@@ -508,6 +533,35 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                           {e.esRegalo ? '✓ Regalo' : '🎁'}
                         </button>
                         <button onClick={() => removeFromCarrito(e.carritoId)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6a717b', fontSize: 14, padding: '2px 4px', lineHeight: 1 }}>✕</button>
+                      </div>
+                      {esAjeno(e) && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, padding: '6px 10px', borderRadius: 8, background: 'rgba(217,184,118,0.06)', border: '1px solid rgba(217,184,118,0.25)', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 11.5, color: '#d9b876' }}>Equipo de {nombreDuenio(e)}</span>
+                          {e.esRegalo ? (
+                            <span style={{ fontSize: 11.5, color: '#828a94' }}>· regalo: sin comisión</span>
+                          ) : (<>
+                          <span style={{ fontSize: 11.5, color: '#828a94' }}>· comisión US$</span>
+                          <input type="text" inputMode="decimal" value={e.comisionVenta ?? ''} onChange={ev => updateComision(e.carritoId, ev.target.value)} placeholder="0"
+                            style={{ width: 64, padding: '3px 8px', borderRadius: 6, background: 'rgba(231,238,246,0.05)', border: '1px solid rgba(217,184,118,0.3)', color: '#eef2f7', fontSize: 12.5 }} />
+                          </>)}
+                          {e.costo > 0 && <span style={{ fontSize: 11, color: '#6a717b' }}>+ capital {fUSD(e.costo * (e.cantidadVenta || 1))} al dueño</span>}
+                        </div>
+                      )}
+                      {esPhone(e.categoria) && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 11.5, color: '#828a94' }}>Garantía:</span>
+                          {[['3m', '3 meses'], ['fecha', 'Hasta fecha'], ['sin', 'Sin garantía']].map(([k, label]) => (
+                            <button key={k} onClick={() => updateGarantia(e.carritoId, k)}
+                              style={{ padding: '3px 10px', borderRadius: 14, fontSize: 11.5, cursor: 'pointer', border: 'none', fontFamily: "'Hanken Grotesk', sans-serif", background: (e.garantiaTipo || '3m') === k ? '#74a8d6' : 'rgba(231,238,246,0.06)', color: (e.garantiaTipo || '3m') === k ? '#14171c' : '#828a94', fontWeight: (e.garantiaTipo || '3m') === k ? 600 : 400 }}>
+                              {label}
+                            </button>
+                          ))}
+                          {(e.garantiaTipo || '3m') === 'fecha' && (
+                            <input type="date" value={e.garantiaFecha || ''} onChange={ev => updateGarantia(e.carritoId, 'fecha', ev.target.value)}
+                              style={{ padding: '4px 9px', borderRadius: 8, background: '#1e2228', border: '1px solid rgba(231,238,246,0.12)', color: '#eef2f7', fontSize: 12, colorScheme: 'dark' }} />
+                          )}
+                        </div>
+                      )}
                       </div>
                     );
                   })}
@@ -700,6 +754,11 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
                     {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
+                <div><span style={CANJE_LB}>Dueño</span>
+                  <select value={canjeNegocioId} onChange={e => setCanjeNegocioId(e.target.value)} style={CANJE_SEL}>
+                    {negocios.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+                  </select>
+                </div>
                 <div><span style={CANJE_LB}>Modelo</span><CanjeCombo value={canjeModelo} onChange={setCanjeModelo} options={getModelos(canjeCategoria)} placeholder="ej. iPhone 13 / PS5" /></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div><span style={CANJE_LB}>{canjeDef.capLabel}</span><CanjeCombo value={canjeCap} onChange={setCanjeCap} options={getCaps(canjeCategoria) || []} placeholder={canjeIsConsola ? 'ej. Edición Disco' : 'ej. 128 GB'} /></div>
@@ -748,6 +807,12 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               </div>
             )}
 
+            {hayEquipos && (
+              <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 16, color: '#6a717b' }}>
+                Garantía: se elige por equipo en el carrito
+              </div>
+            )}
+
             <div style={{ ...MONO(10), letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10, color: '#6a717b' }}>
               {canje && canjeNum > 0 ? 'Método para el saldo' : 'Forma de pago'}
             </div>
@@ -769,7 +834,7 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <span style={stepLabel()}>05</span>
               <span style={{ fontSize: 15.5, fontWeight: 600 }}>Vendedor</span>
             </div>
-            <VendedorStep vendedorNumero={vendedorNumero} onChangeNumero={setVendedorNumero} />
+            <VendedorStep vendedores={vendedores || []} vendedorNumero={vendedorNumero} onChangeNumero={setVendedorNumero} />
           </div>
         </div>
 
@@ -847,6 +912,25 @@ export default function Venta({ equipos, clientes, tc, onConfirm, onConfirmApart
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 13.5, color: '#828a94' }}>Método</span>
                 <span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>{metodo}</span>
+              </div>
+            )}
+            {hayEquipos ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {carrito.filter(c => esPhone(c.categoria)).map(c => {
+                  const t = c.garantiaTipo || '3m';
+                  const txt = t === 'sin' ? 'sin garantía' : t === 'fecha' ? (c.garantiaFecha ? `hasta ${c.garantiaFecha.split('-').reverse().join('/')}` : 'elegí la fecha') : '3 meses';
+                  return (
+                    <div key={c.carritoId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 12.5, color: '#828a94', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Garantía · {c.modelo}</span>
+                      <span style={{ fontSize: 12.5, color: '#eef2f7', fontWeight: 500, whiteSpace: 'nowrap' }}>{txt}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 13.5, color: '#828a94' }}>Garantía</span>
+                <span style={{ fontSize: 13.5, color: '#828a94', fontWeight: 500 }}>Sin garantía · accesorios</span>
               </div>
             )}
             {!esCuotas && !tieneApartado && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span style={{ fontSize: 13.5, color: '#828a94' }}>Modalidad</span><span style={{ fontSize: 13.5, color: '#eef2f7', fontWeight: 500 }}>Contado · pago total</span></div>}
