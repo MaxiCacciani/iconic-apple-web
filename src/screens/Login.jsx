@@ -48,8 +48,8 @@ export default function Login({ onLogin }) {
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.5, color: '#eef2f7', marginBottom: 6 }}>
-            Iconic{' '}
-            <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', color: '#9ec6ec' }}>Apple</span>
+            Apple{' '}
+            <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', color: '#9ec6ec' }}>VCP</span>
           </div>
           <div style={{ ...MONO(10, '#6a717b'), letterSpacing: 2, textTransform: 'uppercase' }}>Panel de gestión</div>
         </div>

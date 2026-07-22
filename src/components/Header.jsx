@@ -86,10 +86,10 @@ export default function Header({ screen, onNav, onLogout }) {
         <div style={S.logoWrap}>
           <div style={S.logoIcon}>
             <div style={S.logoIridescent} />
-            <span style={S.logoI}>i</span>
+            <span style={S.logoI}>A</span>
           </div>
           <div style={S.brandCol} className="desk-only">
-            <span style={S.brandName}>Iconic</span>
+            <span style={S.brandName}>Apple VCP</span>
             <span style={S.brandSub}>Villa Carlos Paz</span>
           </div>
         </div>
