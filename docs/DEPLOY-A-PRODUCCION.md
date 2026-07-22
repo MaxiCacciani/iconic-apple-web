@@ -15,9 +15,26 @@ con **stock compartido** y datos privados por usuario.
 
 ## Fase 0 — Antes de empezar (5 min)
 
-- [ ] En Supabase (proyecto de **producción**), confirmá que tenés un **backup /
-  Point-in-Time Recovery** disponible (Database → Backups). Es tu red por si algo
-  sale mal.
+- [ ] **Backup.** El free tier de Supabase **no** tiene backups automáticos ni PITR
+  (eso es de los planes pagos), así que hacete uno a mano. Elegí una:
+
+  - **Rápido (2 min, sin instalar nada):** Supabase → Table Editor → por cada
+    tabla, export a **CSV**. Con estas 6 alcanza: `ventas`, `clientes`, `cobros`,
+    `equipos`, `reservas`, `reclamos`. Guardalos en una carpeta.
+  - **Completo (esquema + datos, requiere Docker):** prendé Docker Desktop y
+    activá la integración con WSL (Settings → Resources → WSL Integration), y
+    después:
+    ```bash
+    docker run --rm postgres:17 pg_dump "TU_CONNECTION_STRING" > ~/backup-prod-$(date +%F).sql
+    ```
+    El connection string sale de Supabase → Project Settings → Database →
+    **Session pooler** (puerto 5432; el 6543 no funciona con `pg_dump`).
+
+  > **Cuánto riesgo hay realmente:** ninguna de las 11 migraciones borra tablas ni
+  > columnas — son aditivas. Lo más invasivo son los backfills (`update` con
+  > guardas) y el drop+recreate de políticas dentro del mismo script. Las columnas
+  > viejas (`lineas`, `equipo_label`, etc.) quedan intactas como respaldo. El
+  > riesgo real es que algo quede mal asignado, no que se pierda.
 - [ ] Avisale a tu socio que no opere la app por ~15 minutos (ventana de deploy).
 - [ ] Tené a mano: el **email del usuario de tu socio** (si ya existe) y una
   contraseña para crearlo si no existe.
@@ -150,4 +167,7 @@ select nombre from public.negocios order by nombre;          -- Iconic, TuIphone
 - El caso más común: un usuario "no ve nada" → casi siempre es que **no cerró y
   volvió a abrir sesión** después de la Fase B, o que su `negocio_id` en
   `raw_app_meta_data` no coincide con un negocio real (revisá con la query de B4).
-- Si necesitás volver atrás la base, usás el backup / PITR de la Fase 0.
+- Si necesitás volver atrás, usás el backup de la Fase 0 (CSV o dump). Recordá que
+  ninguna migración borra columnas: el `lineas` JSON y `equipo_label` de las ventas
+  siguen ahí, así que los datos originales de cada venta no se pierden aunque el
+  backfill de `venta_items` haya salido raro.
